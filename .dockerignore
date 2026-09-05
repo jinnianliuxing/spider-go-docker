@@ -1,0 +1,10 @@
+.git
+.gitignore
+*.md
+*.exe
+spider-go
+spider-go-test
+spider-go-production.exe
+.idea
+.vscode
+node_modules

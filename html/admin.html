@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spider-Go 管理后台</title>
+    <style>
+        /* ============================================================
+           Spider-Go · 值房控制台 (Duty Console identity)
+           石墨 graphite / 信号琥珀 signal amber / 钢青 steel — the lamp-lit back office
+           ============================================================ */
+        :root {
+            --bg: #14181D;
+            --bg-dot: rgba(226,232,240,0.045);
+            --card-bg: #1C222A;
+            --panel-2: #242C36;
+            --text: #E3E9EF;
+            --text-secondary: #A7B2BF;
+            --text-muted: #7C8898;
+            --border: #2A3440;
+            --hairline: #26303B;
+            --input-bg: #161C23;
+            --input-border: #36414E;
+            --accent: #E8A33D;          /* 信号琥珀：唯一主动作色 */
+            --accent-strong: #F4B659;
+            --accent-soft: rgba(232,163,61,0.14);
+            --accent-contrast: #221604;
+            --ok: #46B37E;
+            --danger: #E05D4F;
+            --info: #58ABDB;
+            --warn: #D9B23C;
+            --chart-deep: #5C430F;
+            --chart-glow: #E8A33D;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
+            --shadow-md: 0 16px 40px -16px rgba(0,0,0,0.6);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::selection { background: var(--accent-soft); color: var(--text); }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(var(--bg-dot) 1px, transparent 1px) 0 0 / 22px 22px,
+                var(--bg);
+            background-attachment: fixed;
+            color: var(--text);
+            min-height: 100vh;
+        }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-thumb { background: #333E4B; border-radius: 6px; border: 2px solid var(--bg); }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        /* ---- 头部：仪表条 ---- */
+        .header {
+            position: relative;
+            background: linear-gradient(180deg, #191F27, #12161C);
+            border-bottom: 1px solid var(--border);
+            box-shadow: inset 0 -2px 0 rgba(232,163,61,0.55), var(--shadow-sm);
+            color: #fff;
+            padding: 15px 0;
+            margin-bottom: 20px;
+        }
+        .header .container { display: flex; justify-content: space-between; align-items: center; }
+        .header h1 {
+            font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .header h1 span { color: #E25C4A; }
+        .header-right { display: flex; align-items: center; gap: 14px; }
+        .admin-info { font-size: 13px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+
+        /* ---- 按钮 ---- */
+        .btn {
+            padding: 8px 18px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background-color 0.15s, border-color 0.15s, color 0.15s, filter 0.15s, transform 0.15s;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn-primary { background: var(--accent); color: var(--accent-contrast); }
+        .btn-primary:hover { background: var(--accent-strong); }
+        .btn-success { background: var(--ok); color: #06180E; }
+        .btn-success:hover { filter: brightness(1.1); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { filter: brightness(1.12); }
+        .btn-warning { background: transparent; color: var(--warn); border-color: var(--warn); }
+        .btn-warning:hover { background: rgba(217,178,60,0.12); }
+        .btn-outline { background: transparent; color: var(--text-secondary); border-color: var(--input-border); }
+        .btn-outline:hover { color: var(--text); border-color: var(--text-muted); background: rgba(255,255,255,0.04); }
+        .btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 7px; }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+        /* ---- 卡片：仪表面板，标题带琥珀刻度 ---- */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+        }
+        .card h2 {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            color: var(--text);
+            border-bottom: 1px solid var(--hairline);
+            display: flex; align-items: center; gap: 8px;
+            position: relative;
+        }
+        .card h2::before { content: ''; width: 18px; height: 3px; background: var(--accent); border-radius: 2px; flex: none; }
+        .card h3 { font-size: 13px; margin-bottom: 10px; color: var(--text-secondary); font-weight: 600; }
+
+        /* ---- 表单 ---- */
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 5px; font-size: 11px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px 11px;
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            font-size: 13px;
+            background: var(--input-bg);
+            color: var(--text);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            font-family: inherit;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        .form-actions { display: flex; gap: 8px; margin-top: 10px; }
+        .form-group textarea { min-height: 80px; resize: vertical; line-height: 1.6; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+
+        /* ---- 指标卡：琥珀读数 ---- */
+        .stat-card {
+            position: relative;
+            background: linear-gradient(160deg, var(--panel-2), var(--card-bg));
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            overflow: hidden;
+        }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 34px; height: 3px; background: var(--accent); border-radius: 0 0 3px 3px; }
+        .stat-card .stat-value {
+            font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+            word-break: break-all;
+        }
+        .stat-card .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.08em; }
+        .stat-card .stat-sub { font-size: 11px; color: var(--text-muted); margin-top: 3px; opacity: 0.75; }
+
+        /* ---- 表格：终端账页 ---- */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid var(--hairline); }
+        thead th {
+            background: var(--panel-2);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: 0.09em;
+            border-top: 1px solid var(--hairline);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        td { font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+        td strong, tbody tr td:first-child { color: var(--text); }
+        .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--hairline); }
+
+        /* ---- 页签：通道开关 ---- */
+        .tabs {
+            display: flex; gap: 3px;
+            margin-bottom: 16px;
+            background: var(--input-bg);
+            border: 1px solid var(--hairline);
+            padding: 3px;
+            border-radius: 9px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--text-muted);
+            transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+            white-space: nowrap;
+        }
+        .tab.active {
+            background: var(--panel-2);
+            color: var(--accent);
+            font-weight: 700;
+            box-shadow: inset 0 -2px 0 var(--accent), var(--shadow-sm);
+        }
+        .tab:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.04); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: rise 0.22s ease both; }
+        @keyframes rise { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+        /* ---- 管理员登录方式切换（原内联样式迁入） ---- */
+        .admin-login-tab {
+            flex: 1; padding: 8px 6px; text-align: center; cursor: pointer;
+            border-radius: 6px; font-size: 13px; color: var(--text-muted);
+            transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+            white-space: nowrap;
+        }
+        .admin-login-tab.active {
+            background: var(--panel-2);
+            color: var(--accent);
+            font-weight: 700;
+            box-shadow: inset 0 -2px 0 var(--accent), var(--shadow-sm);
+        }
+        .admin-login-tab:hover:not(.active) { color: var(--text); }
+
+        /* ---- 消息条：信号灯色条 ---- */
+        .message { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; display: none; line-height: 1.55; }
+        .message.error   { display: block; background: rgba(224,93,79,0.12); color: #F08A7E; border-left: 3px solid var(--danger); }
+        .message.success { display: block; background: rgba(70,179,126,0.12); color: #6BCB96; border-left: 3px solid var(--ok); }
+        .message.info    { display: block; background: rgba(88,171,219,0.12); color: #82C2E8; border-left: 3px solid var(--info); }
+        .message.warning { display: block; background: rgba(217,178,60,0.12); color: #E2C463; border-left: 3px solid var(--warn); }
+
+        /* ---- 徽标：状态灯签 ---- */
+        .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; white-space: nowrap; }
+        .badge-success { background: rgba(70,179,126,0.14); color: #6BCB96; border: 1px solid rgba(70,179,126,0.5); }
+        .badge-warning { background: rgba(217,178,60,0.14); color: #E2C463; border: 1px solid rgba(217,178,60,0.5); }
+        .badge-error   { background: rgba(224,93,79,0.14); color: #F08A7E; border: 1px solid rgba(224,93,79,0.5); }
+        .badge-info    { background: rgba(88,171,219,0.14); color: #82C2E8; border: 1px solid rgba(88,171,219,0.5); }
+
+        /* ---- 登录页 ---- */
+        .auth-page { display: flex; justify-content: center; align-items: center; min-height: 78vh; }
+        .auth-card {
+            position: relative;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--accent);
+            border-radius: 12px;
+            padding: 32px;
+            width: 400px;
+            max-width: 92%;
+            box-shadow: var(--shadow-md);
+        }
+        .auth-card h2 {
+            font-family: ui-monospace, "SF Mono", Consolas, monospace;
+            text-align: center;
+            margin-bottom: 22px;
+            color: var(--text);
+            font-size: 18px;
+            letter-spacing: 0.1em;
+        }
+        .auth-card .auth-hint { text-align: center; margin-top: 14px; font-size: 12px; color: var(--text-muted); }
+
+        /* ---- 加载 ---- */
+        .loading { text-align: center; padding: 30px; color: var(--text-muted); font-size: 14px; }
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 13px; height: 13px;
+            margin-left: 8px;
+            vertical-align: -2px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- 弹窗 ---- */
+        .modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(8,11,15,0.66);
+            backdrop-filter: blur(3px);
+            z-index: 1000;
+            justify-content: center; align-items: center;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-top: 3px solid var(--accent);
+            border-radius: 12px;
+            padding: 24px;
+            width: 500px;
+            max-width: 92%;
+            max-height: 82vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-md);
+            animation: rise 0.2s ease both;
+        }
+        .modal h3 { font-size: 15px; margin-bottom: 16px; color: var(--text); letter-spacing: 0.04em; }
+        .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+
+        .hidden { display: none !important; }
+
+        /* ---- 同步进度 ---- */
+        .sync-progress { background: var(--input-bg); border: 1px solid var(--hairline); border-radius: 999px; height: 8px; overflow: hidden; margin: 8px 0; min-width: 90px; }
+        .sync-progress-bar { height: 100%; background: linear-gradient(90deg, var(--chart-deep), var(--accent)); border-radius: 999px; transition: width 0.5s; }
+
+        /* ---- 开关 ---- */
+        .switch { position: relative; width: 40px; height: 22px; display: inline-block; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .switch .slider { position: absolute; cursor: pointer; inset: 0; background: #39434F; border-radius: 22px; transition: 0.25s; }
+        .switch .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #C9D2DC; border-radius: 50%; transition: 0.25s; }
+        .switch input:checked + .slider { background: var(--ok); }
+        .switch input:checked + .slider:before { transform: translateX(18px); background: #FFFFFF; }
+
+        /* ---- 密码显示切换 ---- */
+        .pwd-wrapper { position: relative; display: flex; align-items: center; }
+        .pwd-wrapper input { flex: 1; padding-right: 38px; }
+        .pwd-toggle {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; font-size: 17px; line-height: 1;
+            padding: 4px; opacity: 0.55; user-select: none;
+        }
+        .pwd-toggle:hover { opacity: 1; }
+
+        /* ---- 工具类 ---- */
+        .inline-flex { display: inline-flex; align-items: center; gap: 6px; }
+        .text-sm { font-size: 12px; color: var(--text-muted); }
+        .mt-2 { margin-top: 8px; }
+        .mb-2 { margin-bottom: 8px; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        /* ---- 焦点可见性 & 动效偏好 ---- */
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+
+        /* ============================================================
+           值房控制台 · 布局重构（console shell / nav rail / section head）
+           桌面规则 · 追加于既有规则之后、mobile media 之前
+           ============================================================ */
+        /* ---- A-1 外壳与左右分栏 ---- */
+        .console-shell { display: flex; gap: 20px; align-items: flex-start; width: 100%; min-width: 0; }
+        .console-main { flex: 1; min-width: 0; max-width: 1000px; }
+
+        /* ---- A-2/A-3 导航 rail：通道开关竖排 ---- */
+        .tabs {
+            flex-direction: column; flex-wrap: nowrap;
+            width: 208px; flex: none;
+            position: sticky; top: 84px;
+            max-height: calc(100vh - 104px); overflow-y: auto;
+            background: #11161D;
+            border-color: var(--border);
+            border-radius: 12px;
+            padding: 10px; gap: 4px;
+        }
+        .tab { text-align: left; padding: 10px 14px; font-size: 13px; border-radius: 8px; }
+        .tab.active { box-shadow: inset 3px 0 0 var(--accent); }
+        .rail-brand {
+            padding: 6px 8px 12px; margin-bottom: 6px;
+            border-bottom: 1px solid var(--hairline);
+            font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+            font-size: 11px; font-weight: 700;
+            letter-spacing: 0.18em; text-transform: uppercase;
+            color: var(--text-muted); white-space: nowrap;
+        }
+
+        /* ---- A-4 分区标题 ---- */
+        .section-head { margin: 2px 0 18px; }
+        .section-eyebrow {
+            display: block;
+            font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+            font-size: 11px; letter-spacing: 0.16em;
+            color: rgba(232,163,61,0.75);
+            margin-bottom: 6px;
+        }
+        .section-title { font-size: 20px; font-weight: 700; letter-spacing: 0.04em; }
+        .section-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+        /* ---- A-5 KPI 行去壳 · 趋势卡升一级 ---- */
+        .card.kpi-strip { background: transparent; border: none; box-shadow: none; padding: 0 0 6px; margin-bottom: 14px; }
+        .card.kpi-strip h2 { font-size: 11px; letter-spacing: 0.16em; color: var(--text-muted); border-bottom: none; margin-bottom: 12px; padding-bottom: 0; }
+        .card.kpi-strip h2::before { width: 12px; height: 2px; }
+        .card.kpi-strip .grid-4 { gap: 14px; }
+        .card.kpi-strip .stat-card { padding: 18px 14px; }
+        .card.kpi-strip .stat-card .stat-value { font-size: 30px; }
+        .card.chart-card h2 { margin-bottom: 4px; }
+        .card.chart-card .range-tools { max-width: none; margin: 0; display: flex; align-items: flex-end; gap: 8px; }
+        .dau-chart-slot { min-height: 200px; border-bottom: 1px solid var(--hairline); }
+
+        /* ---- A-6 表格密度统一 ---- */
+        th, td { padding: 8px 10px; }
+        tbody tr:hover { background: rgba(255,255,255,0.04); }
+
+        /* ---- A-7 空态统一 ---- */
+        .empty-state {
+            text-align: center; padding: 34px 20px !important;
+            color: var(--text-muted); font-size: 13px;
+            border: 1px dashed var(--border); border-radius: 10px;
+            background: rgba(255,255,255,0.02);
+        }
+        .empty-state::before { content: '◌ '; opacity: 0.7; }
+
+        /* ---- A-8 账号管理两列化 ---- */
+        .account-grid {
+            display: grid; gap: 16px;
+            grid-template-columns: minmax(0,5fr) minmax(0,7fr);
+            grid-template-areas: "id mail" "id pwd";
+        }
+        .account-id { grid-area: id; }
+        .account-mail { grid-area: mail; }
+        .account-pwd { grid-area: pwd; }
+        .account-grid .card { margin-bottom: 0; max-width: none; }
+        .account-grid .grid-3 { grid-template-columns: 1fr; gap: 10px; }
+
+        /* ---- A-9 登录卡微调 ---- */
+        .auth-switch { transition: border-color 0.15s; }
+        .auth-card { width: 420px; }
+        .auth-card h2 { letter-spacing: 0.14em; }
+
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; gap: 0; }
+            .tabs { gap: 2px; }
+            .tab { padding: 6px 10px; font-size: 12px; }
+            .header h1 { font-size: 14px; letter-spacing: 0.08em; }
+            .card { padding: 14px; }
+            .auth-card { padding: 24px 20px; }
+        }
+
+        /* ---- A-10 移动端回落：rail 变顶部 sticky 横滚 chips ---- */
+        @media (max-width: 768px) {
+            .console-shell { display: block; }
+            .console-main { max-width: none; }
+            .tabs {
+                flex-direction: row; flex-wrap: nowrap;
+                width: auto;
+                position: sticky; top: 0; z-index: 60;
+                max-height: none;
+                overflow-x: auto; overflow-y: hidden;
+                border-radius: 9px;
+                gap: 2px; padding: 3px;
+            }
+            .rail-brand { display: none; }
+            .tab { white-space: nowrap; text-align: center; padding: 6px 10px; font-size: 12px; }
+            .tab.active { box-shadow: inset 0 -2px 0 var(--accent), var(--shadow-sm); }
+            .kpi-strip .grid-4 { grid-template-columns: 1fr 1fr; }
+            .account-grid { grid-template-columns: 1fr; grid-template-areas: "id" "mail" "pwd"; }
+            .section-title { font-size: 17px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🛡️ <span>Spider-Go</span> 管理后台</h1>
+            <div class="header-right">
+                <span class="admin-info hidden" id="headerAdminInfo"></span>
+                <button class="btn btn-sm btn-outline hidden" id="btnAdminLogout" onclick="adminLogout()" style="color:#fff;border-color:rgba(255,255,255,0.4);">退出</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="globalMsg" class="message"></div>
+
+        <!-- Login -->
+        <div id="adminLoginPage" class="auth-page">
+            <div class="auth-card">
+                <h2>🔐 管理员登录</h2>
+                <div id="loginMsg" class="message"></div>
+                <!-- 默认管理员提示：需先换绑邮箱后才可使用验证码登录（警告先于操作可见） -->
+                <div id="defaultAdminHint" class="message warning" style="display:none;">
+                    ⚠️ 您当前使用的是默认管理员账号，请先通过密码登录后前往「账号管理」页面更换邮箱，再使用验证码登录。
+                </div>
+                <!-- 管理员登录方式切换 -->
+                <div class="auth-switch" style="display:flex;gap:4px;margin-bottom:16px;background:var(--input-bg);padding:3px;border-radius:8px;">
+                    <div style="flex:1;padding:8px;text-align:center;cursor:pointer;border-radius:6px;font-size:13px;" class="admin-login-tab active" onclick="switchAdminLogin('password')">密码登录</div>
+                    <div style="flex:1;padding:8px;text-align:center;cursor:pointer;border-radius:6px;font-size:13px;" class="admin-login-tab" id="adminCaptchaLoginTab" onclick="switchAdminLogin('captcha')">验证码登录</div>
+                    <div style="flex:1;padding:8px;text-align:center;cursor:pointer;border-radius:6px;font-size:13px;" class="admin-login-tab" onclick="switchAdminLogin('reset')">重置密码</div>
+                </div>
+                <!-- 密码登录 -->
+                <div id="adminLoginMethodPwd">
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="adminEmail" placeholder="管理员邮箱">
+                    </div>
+                    <div class="form-group">
+                        <label>密码（默认密码 <strong>123456</strong>，请登录后及时修改）</label>
+                        <div class="pwd-wrapper"><input type="password" id="adminPassword" placeholder="管理员密码" value="123456" onkeydown="if(event.key==='Enter')adminLogin()"><button type="button" class="pwd-toggle" data-target="adminPassword" tabindex="-1">👁</button></div>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="adminLogin()">登 录</button>
+                </div>
+                <!-- 验证码登录 -->
+                <div id="adminLoginMethodCaptcha" style="display:none;">
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="adminCaptchaEmail" placeholder="管理员邮箱">
+                    </div>
+                    <div class="form-group">
+                        <label>验证码</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="adminCaptcha" placeholder="输入验证码" style="flex:1;" onkeydown="if(event.key==='Enter')adminLoginByCaptcha()">
+                            <button class="btn btn-sm btn-outline" id="btnAdminSendCaptcha" onclick="adminSendCaptcha()" style="white-space:nowrap;">发送</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="adminLoginByCaptcha()">登 录</button>
+                </div>
+                <!-- 重置密码（需先通过验证码验证身份） -->
+                <div id="adminLoginMethodReset" style="display:none;">
+                    <p class="text-sm mb-2" style="color:var(--text-muted);">输入管理员邮箱，获取验证码进行身份验证后，密码将重置为 <strong>123456</strong>。</p>
+                    <div class="form-group">
+                        <label>邮箱</label>
+                        <input type="email" id="adminResetEmail" placeholder="管理员邮箱">
+                    </div>
+                    <div class="form-group">
+                        <label>验证码</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="adminResetCaptcha" placeholder="输入验证码" style="flex:1;" onkeydown="if(event.key==='Enter')confirmAdminReset()">
+                            <button class="btn btn-sm btn-outline" id="btnAdminResetCaptcha" onclick="adminSendResetCaptcha()" style="white-space:nowrap;">发送</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-warning" style="width:100%;padding:12px;" onclick="confirmAdminReset()">🔄 重置密码为123456</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main -->
+        <div id="adminMainPage" class="hidden">
+          <div class="console-shell">
+            <!-- Tabs：通道开关竖排 rail（≤768 回落顶部横滚 chips） -->
+            <div class="tabs">
+                <div class="rail-brand">值房 · CONSOLE</div>
+                <div class="tab active" onclick="switchAdminTab('dashboard')">📊 仪表盘</div>
+                <div class="tab" onclick="switchAdminTab('users')">👥 用户管理</div>
+                <div class="tab" onclick="switchAdminTab('sync')">🔄 同步管理</div>
+                <div class="tab" onclick="switchAdminTab('notices')">📢 通知管理</div>
+                <div class="tab" onclick="switchAdminTab('config')">⚙️ 系统配置</div>
+                <div class="tab" onclick="switchAdminTab('email')">📧 群发邮件</div>
+                <div class="tab" onclick="switchAdminTab('account')">🔑 账号管理</div>
+            </div>
+            <div class="console-main">
+
+            <!-- Tab: Dashboard -->
+            <div id="tabDashboard" class="tab-content active">
+                <div class="section-head">
+                    <span class="section-eyebrow">CONSOLE / DASHBOARD</span>
+                    <h2 class="section-title">仪表盘</h2>
+                    <p class="section-desc">运行读数与活跃趋势一览</p>
+                </div>
+                <div class="card kpi-strip">
+                    <h2>📊 系统概览</h2>
+                    <div id="dashboardStats" class="grid-4">
+                        <div class="stat-card"><div class="stat-value" id="statUsers">-</div><div class="stat-label">总用户数</div></div>
+                        <div class="stat-card"><div class="stat-value" id="statNewUsers">-</div><div class="stat-label">今日新增</div></div>
+                        <div class="stat-card"><div class="stat-value" id="statDAU">-</div><div class="stat-label">今日活跃 (DAU)</div></div>
+                        <div class="stat-card"><div class="stat-value" id="statBindUsers">-</div><div class="stat-label">已绑定教务</div></div>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h2>📈 日活趋势</h2>
+                    <div class="form-row range-tools">
+                        <div class="form-group">
+                            <label>开始日期</label>
+                            <input type="date" id="dauStart">
+                        </div>
+                        <div class="form-group">
+                            <label>结束日期</label>
+                            <input type="date" id="dauEnd">
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:flex-end;">
+                            <button class="btn btn-primary btn-sm" onclick="loadDAURange()">查询</button>
+                        </div>
+                    </div>
+                    <div class="dau-chart-slot"><div id="dauChart" style="margin-top:12px;"></div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Users -->
+            <div id="tabUsers" class="tab-content">
+                <div class="section-head">
+                    <span class="section-eyebrow">CONSOLE / USERS</span>
+                    <h2 class="section-title">用户管理</h2>
+                    <p class="section-desc">账号检索、绑定状态与删除</p>
+                </div>
+                <div class="card">
+                    <h2>👥 用户列表</h2>
+                    <div id="userListContent"><div class="loading">加载中...</div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Sync -->
+            <div id="tabSync" class="tab-content">
+                <div class="section-head">
+                    <span class="section-eyebrow">CONSOLE / SYNC</span>
+                    <h2 class="section-title">同步管理</h2>
+                    <p class="section-desc">触发全站同步与任务追踪</p>
+                </div>
+                <div class="card">
+                    <h2>🔄 数据同步管理</h2>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>同步类型</label>
+                            <select id="syncTaskType">
+                                <option value="all">全量同步</option>
+                                <option value="grade">成绩</option>
+                                <option value="regular_grade">平时分</option>
+                                <option value="exam">考试</option>
+                                <option value="level_exam">等级考试</option>
+                                <option value="course">课表</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:flex-end;">
+                            <button class="btn btn-success btn-sm" onclick="adminSyncAll()">🚀 同步所有用户</button>
+                        </div>
+                        <div class="form-group" style="display:flex;align-items:flex-end;">
+                            <button class="btn btn-warning btn-sm" onclick="optimizeTables()">🗑️ 优化表空间</button>
+                        </div>
+                    </div>
+                    <div id="adminSyncMsg" class="message"></div>
+                </div>
+                <div class="card">
+                    <h2>📋 同步任务列表</h2>
+                    <div id="syncTaskList"><div class="loading">加载中...</div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Notices -->
+            <div id="tabNotices" class="tab-content">
+                <div class="section-head">
+                    <span class="section-eyebrow">CONSOLE / NOTICES</span>
+                    <h2 class="section-title">通知管理</h2>
+                    <p class="section-desc">系统公告与使用须知维护</p>
+                </div>
+                <div class="card">
+                    <div class="flex-between">
+                        <h2>📢 通知公告</h2>
+                        <button class="btn btn-primary btn-sm" onclick="showNoticeModal()">＋ 新建通知</button>
+                    </div>
+                    <div id="noticeMessage" class="message"></div>
+                    <div id="noticeList"><div class="loading">加载中...</div></div>
+                </div>
+                <div class="card">
+                    <div class="flex-between">
+                        <h2>📋 使用须知</h2>
+                        <button class="btn btn-primary btn-sm" onclick="showIntroModal()">＋ 新建须知</button>
+                    </div>
+                    <div id="introMessage" class="message"></div>
+                    <div id="introList"><div class="loading">加载中...</div></div>
+                </div>
+            </div>
+
+            <!-- Tab: Config -->
+            <div id="tabConfig" class="tab-content">
+                <div class="section-head">
+                    <span class="section-eyebrow">CONSOLE / CONFIG</span>
+                    <h2 class="section-title">系统配置</h2>
+                    <p class="section-desc">学期参数与日期基准</p>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <h2>📌 当前学期设置</h2>
+                        <div id="termMessage" class="message"></div>
+                        <div class="form-group">
+                            <label>学期</label>
+                            <input type="text" id="configTerm" placeholder="如 2024-2025-1">
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="setTerm()">保存</button>
+                    </div>
+                    <div class="card">
+                        <h2>📅 学期日期设置</h2>
+                        <div id="dateMessage" class="message"></div>
+                        <div class="form-group">
+                            <label>学期</label>
+                            <input type="text" id="dateTerm" placeholder="如 2024-2025-1">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>开始日期</label>
+                                <input type="date" id="dateStart">
+                            </div>
+                            <div class="form-group">
+                                <label>结束日期</label>
+                                <input type="date" id="dateEnd">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="setSemesterDates()">保存</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Email -->
+            <div id="tabEmail" class="tab-content">
+                <div class="section-head">
+                    <span class="section-eyebrow">CONSOLE / MAIL</span>
+                    <h2 class="section-title">群发邮件</h2>
+                    <p class="section-desc">向全体用户投递通知邮件</p>
+                </div>
+                <div class="card">
+                    <h2>📧 群发邮件</h2>
+                    <div id="emailMessage" class="message"></div>
+                    <div class="form-group">
+                        <label>邮件主题</label>
+                        <input type="text" id="emailSubject" placeholder="请输入邮件主题">
+                    </div>
+                    <div class="form-group">
+                        <label>邮件内容</label>
+                        <textarea id="emailContent" rows="6" placeholder="请输入邮件内容..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="broadcastEmail()">📨 发送给所有用户</button>
+                </div>
+            </div>
+
+            <!-- Tab: Account -->
+            <div id="tabAccount" class="tab-content">
+                <div class="section-head">
+                    <span class="section-eyebrow">CONSOLE / ACCOUNT</span>
+                    <h2 class="section-title">账号管理</h2>
+                    <p class="section-desc">管理员身份与凭据维护</p>
+                </div>
+                <div class="account-grid">
+                <div class="card account-id">
+                    <h2>🔑 管理员信息</h2>
+                    <div id="adminInfoContent"></div>
+                </div>
+                <div class="card account-mail">
+                    <h2>📧 更换邮箱</h2>
+                    <div id="emailChangeMsg" class="message"></div>
+                    <p class="text-sm mb-2" style="color:var(--text-muted);">输入新邮箱，获取验证码后完成换绑。如果您当前使用默认管理员邮箱（admin@spider-go.com），请换绑为您自己的邮箱。</p>
+                    <div class="form-group">
+                        <label>新邮箱</label>
+                        <input type="email" id="newAdminEmail" placeholder="输入新的管理员邮箱">
+                    </div>
+                    <div class="form-group">
+                        <label>验证码</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="adminEmailCaptcha" placeholder="输入验证码" style="flex:1;">
+                            <button class="btn btn-sm btn-outline" id="btnAdminEmailCaptcha" onclick="adminSendEmailChangeCaptcha()" style="white-space:nowrap;">发送</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="changeAdminEmail()">保存新邮箱</button>
+                </div>
+                <div class="card account-pwd">
+                    <h2>🔒 修改密码</h2>
+                    <div id="pwdMessage" class="message"></div>
+                    <div class="form-group">
+                        <label>原密码</label>
+                        <div class="pwd-wrapper"><input type="password" id="oldPwd" placeholder="请输入原密码"><button type="button" class="pwd-toggle" data-target="oldPwd" tabindex="-1">👁</button></div>
+                    </div>
+                    <div class="form-group">
+                        <label>新密码</label>
+                        <div class="pwd-wrapper"><input type="password" id="newPwd" placeholder="至少6位"><button type="button" class="pwd-toggle" data-target="newPwd" tabindex="-1">👁</button></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="changeAdminPwd()">修改密码</button>
+                </div>
+                </div><!-- /account-grid -->
+            </div><!-- /tabAccount -->
+            </div><!-- /console-main -->
+          </div><!-- /console-shell -->
+        </div>
+    </div>
+
+    <!-- Notice Modal -->
+    <div class="modal-overlay" id="noticeModal">
+        <div class="modal">
+            <h3 id="noticeModalTitle">📢 新建通知</h3>
+            <input type="hidden" id="editNoticeId">
+            <div id="noticeModalMsg" class="message"></div>
+            <div class="form-group">
+                <label>通知内容</label>
+                <textarea id="noticeContent" rows="4" placeholder="请输入通知内容"></textarea>
+            </div>
+            <div class="form-group">
+                <label>通知类型</label>
+                <input type="text" id="noticeType" placeholder="如 system, update" value="system">
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                    <label style="margin:0;">显示</label>
+                    <label class="switch"><input type="checkbox" id="noticeShow" checked><span class="slider"></span></label>
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                    <label style="margin:0;">置顶</label>
+                    <label class="switch"><input type="checkbox" id="noticeTop"><span class="slider"></span></label>
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                    <label style="margin:0;">HTML格式</label>
+                    <label class="switch"><input type="checkbox" id="noticeHtml"><span class="slider"></span></label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('noticeModal')">取消</button>
+                <button class="btn btn-primary" id="noticeSaveBtn" onclick="saveNotice()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Intro Modal -->
+    <div class="modal-overlay" id="introModal">
+        <div class="modal">
+            <h3 id="introModalTitle">📋 新建使用须知</h3>
+            <input type="hidden" id="editIntroId">
+            <div id="introModalMsg" class="message"></div>
+            <div class="form-group">
+                <label>内容</label>
+                <textarea id="introContent" rows="6" placeholder="请输入使用须知内容"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                    <label style="margin:0;">显示</label>
+                    <label class="switch"><input type="checkbox" id="introShow" checked><span class="slider"></span></label>
+                </div>
+                <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+                    <label style="margin:0;">重定向</label>
+                    <label class="switch"><input type="checkbox" id="introRedirect"><span class="slider"></span></label>
+                </div>
+            </div>
+            <div class="form-group" id="introLinkGroup" style="display:none;">
+                <label>重定向链接</label>
+                <input type="text" id="introLink" placeholder="https://...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" onclick="closeModal('introModal')">取消</button>
+                <button class="btn btn-primary" id="introSaveBtn" onclick="saveIntro()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api';
+        let adminToken = localStorage.getItem('adminToken') || '';
+        let adminInfo = null;
+
+        // 默认管理员邮箱（新部署时数据库自动创建的默认账号）
+        const DEFAULT_ADMIN_EMAIL = 'admin@spider-go.com';
+
+        // 登录成功后保存token和邮箱
+        function loginSuccess(data) {
+            adminToken = data.data.token;
+            adminInfo = data.data.admin;
+            localStorage.setItem('adminToken', adminToken);
+            if (adminInfo && adminInfo.email) {
+                localStorage.setItem('adminEmail', adminInfo.email);
+            }
+            showMsg('loginMsg', '登录成功', 'success');
+            setTimeout(() => loadAdminApp(), 300);
+        }
+
+        // ========== XSS 防护：HTML 转义 ==========
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ========== 默认管理员邮箱检测 ==========
+        function isDefaultAdminEmail(email) {
+            return email === DEFAULT_ADMIN_EMAIL;
+        }
+
+        // 根据邮箱是否默认，控制验证码登录的可用性
+        function updateCaptchaLoginAvailability() {
+            const email = document.getElementById('adminCaptchaEmail').value;
+            const isDefault = isDefaultAdminEmail(email);
+            const captchaTab = document.getElementById('adminCaptchaLoginTab');
+            const captchaContent = document.getElementById('adminLoginMethodCaptcha');
+            const defaultHint = document.getElementById('defaultAdminHint');
+            const captchaSendBtn = document.getElementById('btnAdminSendCaptcha');
+            const captchaLoginBtn = document.querySelector('#adminLoginMethodCaptcha .btn-primary');
+
+            if (isDefault) {
+                // 彻底禁用：视觉禁用 + 隐藏验证码内容 + 切回密码登录
+                captchaTab.style.opacity = '0.5';
+                captchaTab.style.pointerEvents = 'none';
+                captchaContent.style.display = 'none';
+                defaultHint.style.display = 'block';
+                if (captchaSendBtn) captchaSendBtn.disabled = true;
+                if (captchaLoginBtn) captchaLoginBtn.disabled = true;
+                // 如果当前正在显示验证码登录tab，切回密码登录
+                if (document.getElementById('adminLoginMethodPwd').style.display === 'none') {
+                    switchAdminLogin('password');
+                }
+            } else {
+                captchaTab.style.opacity = '1';
+                captchaTab.style.pointerEvents = 'auto';
+                defaultHint.style.display = 'none';
+                if (captchaSendBtn) captchaSendBtn.disabled = false;
+                if (captchaLoginBtn) captchaLoginBtn.disabled = false;
+            }
+        }
+
+        // 从 localStorage 恢复上次登录的邮箱，填充到所有登录相关输入框
+        // 新设备上无存储时不再回退到默认邮箱，而是留空让用户自己输入
+        function restoreAdminEmail() {
+            const saved = localStorage.getItem('adminEmail');
+            document.getElementById('adminEmail').value = saved || '';
+            document.getElementById('adminCaptchaEmail').value = saved || '';
+            document.getElementById('adminResetEmail').value = saved || '';
+            updateCaptchaLoginAvailability();
+        }
+
+        // 当验证码登录页的邮箱输入改变时，重新检测
+        document.addEventListener('DOMContentLoaded', function() {
+            const captchaEmailInput = document.getElementById('adminCaptchaEmail');
+            if (captchaEmailInput) {
+                captchaEmailInput.addEventListener('input', updateCaptchaLoginAvailability);
+                captchaEmailInput.addEventListener('change', updateCaptchaLoginAvailability);
+            }
+        });
+
+        // ========== Auth ==========
+        async function adminLogin() {
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            if (!email || !password) { showMsg('loginMsg', '请填写邮箱和密码', 'error'); return; }
+            try {
+                const res = await fetch(API + '/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    loginSuccess(data);
+                } else {
+                    showMsg('loginMsg', data.message || '登录失败', 'error');
+                }
+            } catch(e) {
+                showMsg('loginMsg', '网络错误', 'error');
+            }
+        }
+
+        function adminLogout() {
+            // 防止重复退出：如果已经在登录页，不再执行
+            if (!document.getElementById('adminLoginPage').classList.contains('hidden')) {
+                return;
+            }
+            adminToken = '';
+            adminInfo = null;
+            localStorage.removeItem('adminToken');
+            document.getElementById('adminMainPage').classList.add('hidden');
+            document.getElementById('adminLoginPage').classList.remove('hidden');
+            document.getElementById('headerAdminInfo').classList.add('hidden');
+            document.getElementById('btnAdminLogout').classList.add('hidden');
+            restoreAdminEmail();
+        }
+
+        // 管理员登录方式切换（函数级：默认邮箱时无法切到验证码）
+        function switchAdminLogin(method) {
+            document.querySelectorAll('.admin-login-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.admin-login-tab').forEach(t => {
+                const txt = t.textContent;
+                if (method === 'password' && txt.includes('密码')) t.classList.add('active');
+                if (method === 'captcha' && txt.includes('验证码')) t.classList.add('active');
+                if (method === 'reset' && txt.includes('重置')) t.classList.add('active');
+            });
+            document.getElementById('adminLoginMethodPwd').style.display = method === 'password' ? 'block' : 'none';
+            document.getElementById('adminLoginMethodCaptcha').style.display = method === 'captcha' ? 'block' : 'none';
+            document.getElementById('adminLoginMethodReset').style.display = method === 'reset' ? 'block' : 'none';
+            document.getElementById('loginMsg').className = 'message';
+            // 切换到重置密码时填充邮箱
+            if (method === 'reset') {
+                const saved = localStorage.getItem('adminEmail') || '';
+                document.getElementById('adminResetEmail').value = saved;
+            }
+        }
+
+        // 发送重置密码验证码
+        async function adminSendResetCaptcha() {
+            const email = document.getElementById('adminResetEmail').value;
+            if (!email) { showMsg('loginMsg', '请输入邮箱', 'error'); return; }
+            const btn = document.getElementById('btnAdminResetCaptcha');
+            btn.disabled = true; btn.textContent = '发送中...';
+            try {
+                const res = await fetch(API + '/admin/captcha/send', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { data = {}; }
+                const success = data.code === 0 || data.message === '验证码已发送';
+                if (success) {
+                    showMsg('loginMsg', '验证码已发送到邮箱，请查收', 'success');
+                    let count = 60; btn.textContent = `${count}s`;
+                    const timer = setInterval(() => { count--; if (count <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '发送'; } else btn.textContent = `${count}s`; }, 1000);
+                } else {
+                    showMsg('loginMsg', data.message || (res.ok ? '发送失败：服务器返回了非 JSON 响应' : '网络错误(' + res.status + ')'), 'error');
+                    btn.disabled = false; btn.textContent = '发送';
+                }
+            } catch(e) { showMsg('loginMsg', '网络错误', 'error'); btn.disabled = false; btn.textContent = '发送'; }
+        }
+
+        // 确认重置密码（验证码验证后重置为123456）
+        async function confirmAdminReset() {
+            const email = document.getElementById('adminResetEmail').value;
+            const captcha = document.getElementById('adminResetCaptcha').value;
+            if (!email || !captcha) { showMsg('loginMsg', '请填写邮箱和验证码', 'error'); return; }
+            if (!confirm('确定要将密码重置为 123456 吗？重置后请使用新密码登录。')) return;
+            try {
+                const res = await fetch(API + '/admin/reset-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, captcha })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('loginMsg', '✅ 密码已重置为 123456，请使用新密码登录', 'success');
+                    document.getElementById('adminResetCaptcha').value = '';
+                    document.getElementById('adminPassword').value = '123456';
+                    // 3秒后自动切回密码登录
+                    setTimeout(() => switchAdminLogin('password'), 2000);
+                } else {
+                    showMsg('loginMsg', data.message || '重置失败', 'error');
+                }
+            } catch(e) { showMsg('loginMsg', '网络错误', 'error'); }
+        }
+
+        // 发送管理员登录验证码（函数级防护：默认邮箱禁止发送）
+        async function adminSendCaptcha() {
+            const email = document.getElementById('adminCaptchaEmail').value;
+            if (!email) { showMsg('loginMsg', '请输入邮箱', 'error'); return; }
+            // 安全锁：默认邮箱不可发送验证码
+            if (isDefaultAdminEmail(email)) {
+                showMsg('loginMsg', '默认管理员账号不能使用验证码登录，请先更换邮箱', 'warning');
+                updateCaptchaLoginAvailability();
+                return;
+            }
+            const btn = document.getElementById('btnAdminSendCaptcha');
+            btn.disabled = true; btn.textContent = '发送中...';
+            try {
+                const res = await fetch(API + '/admin/captcha/send', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { data = {}; }
+                // 兼容新旧响应格式：
+                //   旧格式: {"message":"验证码已发送"}        → data.code 为 undefined
+                //   新格式: {"code":0,"message":"success", …} → data.code === 0
+                const success = data.code === 0 || data.message === '验证码已发送';
+                if (success) {
+                    showMsg('loginMsg', '验证码已发送到邮箱，请查收', 'success');
+                    let count = 60; btn.textContent = `${count}s`;
+                    const timer = setInterval(() => { count--; if (count <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '发送'; } else btn.textContent = `${count}s`; }, 1000);
+                } else {
+                    showMsg('loginMsg', data.message || (res.ok ? '发送失败：服务器返回了非 JSON 响应' : '网络错误(' + res.status + ')'), 'error');
+                    btn.disabled = false; btn.textContent = '发送';
+                }
+            } catch(e) { showMsg('loginMsg', '网络错误', 'error'); btn.disabled = false; btn.textContent = '发送'; }
+        }
+
+        // 管理员验证码登录（函数级防护：默认邮箱禁止使用）
+        async function adminLoginByCaptcha() {
+            const email = document.getElementById('adminCaptchaEmail').value;
+            const captcha = document.getElementById('adminCaptcha').value;
+            if (!email || !captcha) { showMsg('loginMsg', '请填写邮箱和验证码', 'error'); return; }
+            // 安全锁：默认邮箱不可使用验证码登录
+            if (isDefaultAdminEmail(email)) {
+                showMsg('loginMsg', '默认管理员账号不能使用验证码登录，请先更换邮箱', 'warning');
+                updateCaptchaLoginAvailability();
+                return;
+            }
+            try {
+                const res = await fetch(API + '/admin/login/captcha', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, captcha })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    loginSuccess(data);
+                } else { showMsg('loginMsg', data.message || '登录失败', 'error'); }
+            } catch(e) { showMsg('loginMsg', '网络错误', 'error'); }
+        }
+
+        // ========== Main App ==========
+        async function loadAdminApp() {
+            document.getElementById('adminLoginPage').classList.add('hidden');
+            document.getElementById('adminMainPage').classList.remove('hidden');
+            document.getElementById('headerAdminInfo').classList.remove('hidden');
+            document.getElementById('btnAdminLogout').classList.remove('hidden');
+            document.getElementById('headerAdminInfo').textContent = `👋 ${adminInfo ? adminInfo.name : '管理员'}`;
+            
+            const today = new Date();
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            document.getElementById('dauEnd').value = today.toISOString().split('T')[0];
+            document.getElementById('dauStart').value = weekAgo.toISOString().split('T')[0];
+
+            await loadDashboard();
+            await loadSyncTasks();
+            await loadNotices();
+            await loadIntros();
+            await loadAdminInfo();
+        }
+
+        // ========== Dashboard ==========
+        async function loadDashboard() {
+            try {
+                const [userRes, newUserRes, dauRes] = await Promise.all([
+                    fetch(API + '/admin/statistics/user/count', { headers: authHeader() }),
+                    fetch(API + '/admin/statistics/user/new', { headers: authHeader() }),
+                    fetch(API + '/admin/statistics/dau', { headers: authHeader() })
+                ]);
+                const userData = await userRes.json();
+                const newUserData = await newUserRes.json();
+                const dauData = await dauRes.json();
+
+                document.getElementById('statUsers').textContent = userData.code === 0 ? userData.data.total_count : '-';
+                document.getElementById('statNewUsers').textContent = newUserData.code === 0 ? newUserData.data.total_count : '-';
+                document.getElementById('statDAU').textContent = dauData.code === 0 ? dauData.data.count : '-';
+                
+                try {
+                    const usersRes = await fetch(API + '/admin/users', { headers: authHeader() });
+                    const usersData = await usersRes.json();
+                    if (usersData.code === 0 && usersData.data) {
+                        const bindCount = usersData.data.filter(u => u.is_bind).length;
+                        document.getElementById('statBindUsers').textContent = bindCount;
+                    } else {
+                        document.getElementById('statBindUsers').textContent = 'N/A';
+                    }
+                } catch(e) {
+                    document.getElementById('statBindUsers').textContent = 'N/A';
+                }
+
+                await loadDAURange();
+            } catch(e) {
+                showGlobalMsg('加载仪表盘失败', 'error');
+            }
+        }
+
+        async function loadDAURange() {
+            const start = document.getElementById('dauStart').value;
+            const end = document.getElementById('dauEnd').value;
+            if (!start || !end) return;
+            try {
+                const res = await fetch(API + `/admin/statistics/dau/range?start_date=${start}&end_date=${end}`, { headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0 && data.data) {
+                    renderDAUChart(data.data.data || []);
+                }
+            } catch(e) {}
+        }
+
+        function renderDAUChart(data) {
+            if (!data || data.length === 0) {
+                document.getElementById('dauChart').innerHTML = '<p class="text-sm empty-state">暂无日活数据</p>';
+                return;
+            }
+            let maxCount = Math.max(...data.map(d => d.count), 1);
+            let html = '<div style="display:flex;align-items:flex-end;gap:6px;height:150px;padding:10px 0;">';
+            data.forEach(d => {
+                const h = (d.count / maxCount) * 130;
+                html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;">
+                    <span style="font-size:10px;color:var(--text-secondary);margin-bottom:4px;">${d.count}</span>
+                    <div style="width:100%;background:linear-gradient(to top,var(--chart-deep),var(--chart-glow));border-radius:4px 4px 0 0;height:${Math.max(h, 4)}px;transition:height 0.3s;"></div>
+                    <span style="font-size:9px;color:var(--text-muted);margin-top:4px;transform:rotate(-45deg);white-space:nowrap;">${d.date ? d.date.slice(5) : ''}</span>
+                </div>`;
+            });
+            html += '</div>';
+            document.getElementById('dauChart').innerHTML = html;
+        }
+
+        // ========== User List ==========
+        async function loadUserList() {
+            document.getElementById('userListContent').innerHTML = '<div class="loading">加载用户列表...</div>';
+            try {
+                const res = await fetch(API + '/admin/users', { headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0 && data.data) {
+                    renderUserList(data.data);
+                } else {
+                    document.getElementById('userListContent').innerHTML = `<p class="text-sm empty-state">${escapeHtml(data.message || '加载失败')}</p>`;
+                }
+            } catch(e) {
+                document.getElementById('userListContent').innerHTML = '<p class="text-sm empty-state">网络错误</p>';
+            }
+        }
+
+        function renderUserList(users) {
+            if (!users || users.length === 0) {
+                document.getElementById('userListContent').innerHTML = '<p class="text-sm empty-state">暂无用户</p>';
+                return;
+            }
+            let html = `<p class="text-sm mb-2">共 ${escapeHtml('' + users.length)} 个用户</p>
+                <div class="table-wrap"><table>
+                <thead><tr><th>UID</th><th>用户名</th><th>邮箱</th><th>学号</th><th>绑定状态</th><th>操作</th></tr></thead><tbody>`;
+            users.forEach(u => {
+                const uid = escapeHtml('' + u.uid);
+                const name = escapeHtml(u.name || '-');
+                const email = escapeHtml(u.email || '-');
+                const sid = escapeHtml(u.sid || '-');
+                const badge = u.is_bind ? '<span class="badge badge-success">已绑定</span>' : '<span class="badge badge-warning">未绑定</span>';
+                // 使用 data-* 属性避免 onclick 中的注入
+                html += `<tr>
+                    <td>${uid}</td>
+                    <td>${name}</td>
+                    <td>${email}</td>
+                    <td>${sid}</td>
+                    <td>${badge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" data-uid="${uid}" data-name="${escapeHtml(u.name || u.email || '')}">🗑️ 删除</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            document.getElementById('userListContent').innerHTML = html;
+            // 使用事件委托绑定删除事件（避免内联 onclick 注入）
+            document.querySelectorAll('#userListContent .btn-danger').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const uid = this.getAttribute('data-uid');
+                    const name = this.getAttribute('data-name');
+                    deleteUser(parseInt(uid, 10), name);
+                });
+            });
+        }
+
+        async function deleteUser(uid, name) {
+            if (!confirm(`确定要删除用户 "${name}" (UID: ${uid})？\n\n此操作将同时删除该用户的所有关联数据（成绩、课表、考试等），不可恢复！`)) return;
+            try {
+                const res = await fetch(API + '/admin/user/' + uid, { method: 'DELETE', headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showGlobalMsg(`用户 "${name}" 已删除`, 'success');
+                    await loadUserList();
+                } else {
+                    showGlobalMsg(data.message || '删除失败', 'error');
+                }
+            } catch(e) {
+                showGlobalMsg('网络错误', 'error');
+            }
+        }
+
+        // ========== Sync ==========
+        async function adminSyncAll() {
+            const taskType = document.getElementById('syncTaskType').value;
+            const btn = document.querySelector('#tabSync .btn-success');
+            btn.disabled = true;
+            btn.textContent = '⏳ 执行中...';
+            showMsg('adminSyncMsg', '', '');
+            try {
+                const res = await fetch(API + '/admin/sync/all', {
+                    method: 'POST',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_type: taskType })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('adminSyncMsg', `同步任务已启动，共 ${data.data.total_users || 0} 个用户`, 'success');
+                    setTimeout(() => loadSyncTasks(), 2000);
+                } else {
+                    showMsg('adminSyncMsg', data.message || '启动同步失败', 'error');
+                }
+            } catch(e) {
+                showMsg('adminSyncMsg', '网络错误', 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = '🚀 同步所有用户';
+        }
+
+        async function optimizeTables() {
+            showMsg('adminSyncMsg', '', '');
+            try {
+                const res = await fetch(API + '/admin/sync/optimize', {
+                    method: 'POST',
+                    headers: authHeader()
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('adminSyncMsg', data.data.message || '优化成功', 'success');
+                } else {
+                    showMsg('adminSyncMsg', data.message || '优化失败', 'error');
+                }
+            } catch(e) {
+                showMsg('adminSyncMsg', '网络错误', 'error');
+            }
+        }
+
+        async function loadSyncTasks() {
+            try {
+                const res = await fetch(API + '/admin/sync/tasks?limit=20&offset=0', { headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0 && data.data) {
+                    renderSyncTasks(data.data.tasks || []);
+                }
+            } catch(e) {
+                document.getElementById('syncTaskList').innerHTML = '<p class="text-sm empty-state">加载失败</p>';
+            }
+        }
+
+        function renderSyncTasks(tasks) {
+            if (!tasks || tasks.length === 0) {
+                document.getElementById('syncTaskList').innerHTML = '<p class="text-sm empty-state">暂无同步任务</p>';
+                return;
+            }
+            let html = `<div class="table-wrap"><table>
+                <thead><tr><th>任务ID</th><th>类型</th><th>触发方式</th><th>状态</th><th>进度</th><th>用户</th><th>记录</th><th>时间</th></tr></thead><tbody>`;
+            tasks.forEach(t => {
+                const statusMap = {0:'badge-warning',1:'badge-info',2:'badge-success',3:'badge-error'};
+                const statusText = {0:'待执行',1:'执行中',2:'成功',3:'失败'};
+                const progress = t.total_users > 0 ? Math.round((t.processed_users / t.total_users) * 100) : 0;
+                html += `<tr>
+                    <td style="font-size:11px;">${escapeHtml((t.task_id || '').slice(0,12))}...</td>
+                    <td><span class="badge badge-info">${escapeHtml(t.task_type)}</span></td>
+                    <td>${escapeHtml(t.trigger_type)}</td>
+                    <td><span class="badge ${statusMap[t.status] || 'badge-warning'}">${statusText[t.status] || escapeHtml('' + t.status)}</span></td>
+                    <td>
+                        <div class="sync-progress"><div class="sync-progress-bar" style="width:${progress}%"></div></div>
+                        <span class="text-sm">${progress}%</span>
+                    </td>
+                    <td class="text-sm">${t.success_users||0}/${t.total_users||0}</td>
+                    <td class="text-sm">+${t.new_records||0} / ~${t.updated_records||0}</td>
+                    <td class="text-sm">${t.created_at ? new Date(t.created_at).toLocaleString() : '-'}</td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            html += `<p class="text-sm" style="margin-top:8px;">共 ${tasks.length} 条任务，总 ${tasks.reduce((a,t)=>a+(t.total_users||0),0)} 用户</p>`;
+            document.getElementById('syncTaskList').innerHTML = html;
+        }
+
+        // ========== Notices ==========
+        async function loadNotices() {
+            try {
+                const res = await fetch(API + '/admin/notices', { headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0) {
+                    renderNotices(data.data || []);
+                }
+            } catch(e) {
+                document.getElementById('noticeList').innerHTML = '<p class="text-sm empty-state">加载失败</p>';
+            }
+        }
+
+        function renderNotices(notices) {
+            if (!notices || notices.length === 0) {
+                document.getElementById('noticeList').innerHTML = '<p class="text-sm empty-state">暂无通知</p>';
+                return;
+            }
+            let html = `<div class="table-wrap"><table>
+                <thead><tr><th>ID</th><th>类型</th><th>内容</th><th>显示</th><th>置顶</th><th>创建时间</th><th>操作</th></tr></thead><tbody>`;
+            notices.forEach(n => {
+                html += `<tr>
+                    <td>${n.nid || n.id}</td>
+                    <td><span class="badge badge-info">${escapeHtml(n.notice_type || 'system')}</span></td>
+                    <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml((n.content || '').slice(0,50))}</td>
+                    <td>${n.is_show ? '✅' : '❌'}</td>
+                    <td>${n.is_top ? '📌' : '-'}</td>
+                    <td class="text-sm">${n.create_time ? new Date(n.create_time).toLocaleString() : '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" data-action="edit-notice" data-id="${n.nid || n.id}">编辑</button>
+                        <button class="btn btn-sm btn-danger" data-action="delete-notice" data-id="${n.nid || n.id}">删除</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            document.getElementById('noticeList').innerHTML = html;
+        }
+
+        function showNoticeModal(data) {
+            document.getElementById('noticeModalTitle').textContent = data ? '✏️ 编辑通知' : '📢 新建通知';
+            document.getElementById('editNoticeId').value = data ? (data.nid || data.id) : '';
+            document.getElementById('noticeContent').value = data ? (data.content || '') : '';
+            document.getElementById('noticeType').value = data ? (data.notice_type || 'system') : 'system';
+            document.getElementById('noticeShow').checked = data ? !!data.is_show : true;
+            document.getElementById('noticeTop').checked = data ? !!data.is_top : false;
+            document.getElementById('noticeHtml').checked = data ? !!data.is_html : false;
+            document.getElementById('noticeModalMsg').className = 'message';
+            document.getElementById('noticeModal').classList.add('show');
+        }
+
+        async function saveNotice() {
+            const id = document.getElementById('editNoticeId').value;
+            const content = document.getElementById('noticeContent').value;
+            const noticeType = document.getElementById('noticeType').value;
+            const isShow = document.getElementById('noticeShow').checked;
+            const isTop = document.getElementById('noticeTop').checked;
+            const isHtml = document.getElementById('noticeHtml').checked;
+            if (!content) { showMsg('noticeModalMsg', '请输入通知内容', 'error'); return; }
+
+            const url = id ? `${API}/admin/notices/${id}` : `${API}/admin/notices`;
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, notice_type: noticeType, is_show: isShow, is_top: isTop, is_html: isHtml })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    closeModal('noticeModal');
+                    showMsg('noticeMessage', id ? '通知更新成功' : '通知创建成功', 'success');
+                    await loadNotices();
+                } else {
+                    showMsg('noticeModalMsg', data.message || '操作失败', 'error');
+                }
+            } catch(e) {
+                showMsg('noticeModalMsg', '网络错误', 'error');
+            }
+        }
+
+        async function editNotice(id) {
+            try {
+                const res = await fetch(API + '/notices/' + id);
+                const data = await res.json();
+                if (data.code === 0) {
+                    showNoticeModal(data.data);
+                }
+            } catch(e) {
+                showMsg('noticeMessage', '获取通知详情失败', 'error');
+            }
+        }
+
+        async function deleteNotice(id) {
+            if (!confirm('确定删除此通知？')) return;
+            try {
+                const res = await fetch(API + '/admin/notices/' + id, { method: 'DELETE', headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0 || data.message) {
+                    showMsg('noticeMessage', '删除成功', 'success');
+                    await loadNotices();
+                }
+            } catch(e) {
+                showMsg('noticeMessage', '删除失败', 'error');
+            }
+        }
+
+        // ========== Introductions ==========
+        async function loadIntros() {
+            try {
+                const res = await fetch(API + '/admin/introductions', { headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0) {
+                    renderIntros(data.data || []);
+                }
+            } catch(e) {
+                document.getElementById('introList').innerHTML = '<p class="text-sm empty-state">加载失败</p>';
+            }
+        }
+
+        function renderIntros(intros) {
+            if (!intros || intros.length === 0) {
+                document.getElementById('introList').innerHTML = '<p class="text-sm empty-state">暂无使用须知</p>';
+                return;
+            }
+            let html = `<div class="table-wrap"><table>
+                <thead><tr><th>ID</th><th>内容</th><th>显示</th><th>重定向</th><th>链接</th><th>更新时间</th><th>操作</th></tr></thead><tbody>`;
+            intros.forEach(n => {
+                html += `<tr>
+                    <td>${n.id}</td>
+                    <td style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml((n.content || '').slice(0,40))}</td>
+                    <td>${n.is_show ? '✅' : '❌'}</td>
+                    <td>${n.is_redirect ? '🔗' : '-'}</td>
+                    <td class="text-sm" style="max-width:150px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(n.link || '-')}</td>
+                    <td class="text-sm">${n.update_time ? new Date(n.update_time).toLocaleString() : '-'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline" data-action="edit-intro" data-id="${n.id}">编辑</button>
+                        <button class="btn btn-sm btn-danger" data-action="delete-intro" data-id="${n.id}">删除</button>
+                    </td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            document.getElementById('introList').innerHTML = html;
+        }
+
+        function showIntroModal(data) {
+            document.getElementById('introModalTitle').textContent = data ? '✏️ 编辑使用须知' : '📋 新建使用须知';
+            document.getElementById('editIntroId').value = data ? data.id : '';
+            document.getElementById('introContent').value = data ? (data.content || '') : '';
+            document.getElementById('introShow').checked = data ? !!data.is_show : true;
+            document.getElementById('introRedirect').checked = data ? !!data.is_redirect : false;
+            document.getElementById('introLink').value = data ? (data.link || '') : '';
+            document.getElementById('introLinkGroup').style.display = data && data.is_redirect ? 'block' : 'none';
+            document.getElementById('introModalMsg').className = 'message';
+            document.getElementById('introModal').classList.add('show');
+        }
+
+        document.getElementById('introRedirect').addEventListener('change', function() {
+            document.getElementById('introLinkGroup').style.display = this.checked ? 'block' : 'none';
+        });
+
+        async function saveIntro() {
+            const id = document.getElementById('editIntroId').value;
+            const content = document.getElementById('introContent').value;
+            const isShow = document.getElementById('introShow').checked;
+            const isRedirect = document.getElementById('introRedirect').checked;
+            const link = document.getElementById('introLink').value;
+            if (!content) { showMsg('introModalMsg', '请输入内容', 'error'); return; }
+
+            const url = id ? `${API}/admin/introductions/${id}` : `${API}/admin/introductions`;
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, is_show: isShow, is_redirect: isRedirect, link })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    closeModal('introModal');
+                    showMsg('introMessage', id ? '更新成功' : '创建成功', 'success');
+                    await loadIntros();
+                } else {
+                    showMsg('introModalMsg', data.message || '操作失败', 'error');
+                }
+            } catch(e) {
+                showMsg('introModalMsg', '网络错误', 'error');
+            }
+        }
+
+        async function editIntro(id) {
+            try {
+                const res = await fetch(API + '/admin/introductions', { headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0) {
+                    const intro = (data.data || []).find(n => n.id === id);
+                    if (intro) showIntroModal(intro);
+                }
+            } catch(e) {}
+        }
+
+        async function deleteIntro(id) {
+            if (!confirm('确定删除此使用须知？')) return;
+            try {
+                const res = await fetch(API + '/admin/introductions/' + id, { method: 'DELETE', headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0 || data.message) {
+                    showMsg('introMessage', '删除成功', 'success');
+                    await loadIntros();
+                }
+            } catch(e) {
+                showMsg('introMessage', '删除失败', 'error');
+            }
+        }
+
+        // ========== Config ==========
+        async function setTerm() {
+            const term = document.getElementById('configTerm').value;
+            if (!term) { showMsg('termMessage', '请输入学期', 'error'); return; }
+            try {
+                const res = await fetch(API + '/admin/config/term', {
+                    method: 'POST',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ term })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('termMessage', '学期设置成功', 'success');
+                } else {
+                    showMsg('termMessage', data.message || '设置失败', 'error');
+                }
+            } catch(e) {
+                showMsg('termMessage', '网络错误', 'error');
+            }
+        }
+
+        async function setSemesterDates() {
+            const term = document.getElementById('dateTerm').value;
+            const startDate = document.getElementById('dateStart').value;
+            const endDate = document.getElementById('dateEnd').value;
+            if (!term || !startDate || !endDate) { showMsg('dateMessage', '请填写完整信息', 'error'); return; }
+            try {
+                const res = await fetch(API + '/admin/config/semester-dates', {
+                    method: 'POST',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ term, start_date: startDate, end_date: endDate })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('dateMessage', '日期设置成功', 'success');
+                } else {
+                    showMsg('dateMessage', data.message || '设置失败', 'error');
+                }
+            } catch(e) {
+                showMsg('dateMessage', '网络错误', 'error');
+            }
+        }
+
+        // ========== Email ==========
+        async function broadcastEmail() {
+            const subject = document.getElementById('emailSubject').value;
+            const content = document.getElementById('emailContent').value;
+            if (!subject || !content) { showMsg('emailMessage', '请填写主题和内容', 'error'); return; }
+            const btn = document.querySelector('#tabEmail .btn-primary');
+            btn.disabled = true;
+            btn.textContent = '⏳ 发送中...';
+            try {
+                const res = await fetch(API + '/admin/broadcast-email', {
+                    method: 'POST',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subject, content })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('emailMessage', `发送完成：成功 ${data.data.success_count} / 失败 ${data.data.fail_count} / 总共 ${data.data.total_count}`, 'success');
+                } else {
+                    showMsg('emailMessage', data.message || '发送失败', 'error');
+                }
+            } catch(e) {
+                showMsg('emailMessage', '网络错误', 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = '📨 发送给所有用户';
+        }
+
+        // ========== Account ==========
+        async function loadAdminInfo() {
+            try {
+                const res = await fetch(API + '/admin/info', { headers: authHeader() });
+                const data = await res.json();
+                if (data.code === 0) {
+                    const a = data.data;
+                    document.getElementById('adminInfoContent').innerHTML = `
+                        <div class="grid-3">
+                            <div class="stat-card"><div class="stat-value" style="font-size:18px;">${escapeHtml(a.name || '-')}</div><div class="stat-label">管理员</div></div>
+                            <div class="stat-card"><div class="stat-value" style="font-size:16px;">${escapeHtml(a.email || '-')}</div><div class="stat-label">邮箱</div></div>
+                            <div class="stat-card"><div class="stat-value" style="font-size:16px;">UID ${escapeHtml('' + (a.uid || '-'))}</div><div class="stat-label">ID</div></div>
+                        </div>
+                        <p class="text-sm mt-2">注册时间: ${a.created_at ? new Date(a.created_at).toLocaleString() : '-'}</p>
+                    `;
+                }
+            } catch(e) {}
+        }
+
+        async function adminSendEmailChangeCaptcha() {
+            const email = document.getElementById('newAdminEmail').value;
+            if (!email) { showMsg('emailChangeMsg', '请输入新邮箱', 'error'); return; }
+            const btn = document.getElementById('btnAdminEmailCaptcha');
+            btn.disabled = true; btn.textContent = '发送中...';
+            try {
+                const res = await fetch(API + '/captcha/send', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const text = await res.text();
+                let data;
+                try { data = JSON.parse(text); } catch(e) { data = {}; }
+                const success = data.code === 0 || data.message === '验证码已发送';
+                if (success) {
+                    showMsg('emailChangeMsg', '验证码已发送到新邮箱，请查收', 'success');
+                    let count = 60; btn.textContent = `${count}s`;
+                    const timer = setInterval(() => { count--; if (count <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '发送'; } else btn.textContent = `${count}s`; }, 1000);
+                } else {
+                    showMsg('emailChangeMsg', data.message || (res.ok ? '发送失败：服务器返回了非 JSON 响应' : '网络错误(' + res.status + ')'), 'error');
+                    btn.disabled = false; btn.textContent = '发送';
+                }
+            } catch(e) { showMsg('emailChangeMsg', '请求异常：' + e.message, 'error'); btn.disabled = false; btn.textContent = '发送'; }
+        }
+
+        async function changeAdminEmail() {
+            const newEmail = document.getElementById('newAdminEmail').value;
+            const captcha = document.getElementById('adminEmailCaptcha').value;
+            if (!newEmail || !captcha) { showMsg('emailChangeMsg', '请填写新邮箱和验证码', 'error'); return; }
+            try {
+                const res = await fetch(API + '/admin/update-email', {
+                    method: 'POST',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_email: newEmail, captcha })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('emailChangeMsg', '邮箱更换成功！请重新登录', 'success');
+                    localStorage.setItem('adminEmail', newEmail);
+                    setTimeout(() => adminLogout(), 1500);
+                } else {
+                    showMsg('emailChangeMsg', data.message || '更换邮箱失败', 'error');
+                }
+            } catch(e) {
+                showMsg('emailChangeMsg', '网络错误', 'error');
+            }
+        }
+
+        async function changeAdminPwd() {
+            const oldPwd = document.getElementById('oldPwd').value;
+            const newPwd = document.getElementById('newPwd').value;
+            if (!oldPwd || !newPwd) { showMsg('pwdMessage', '请填写原密码和新密码', 'error'); return; }
+            if (newPwd.length < 6) { showMsg('pwdMessage', '新密码至少6位', 'error'); return; }
+            try {
+                const res = await fetch(API + '/admin/reset', {
+                    method: 'POST',
+                    headers: { ...authHeader(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_password: oldPwd, new_password: newPwd })
+                });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('pwdMessage', '密码修改成功', 'success');
+                    document.getElementById('oldPwd').value = '';
+                    document.getElementById('newPwd').value = '';
+                } else {
+                    showMsg('pwdMessage', data.message || '修改失败', 'error');
+                }
+            } catch(e) {
+                showMsg('pwdMessage', '网络错误', 'error');
+            }
+        }
+
+        // ========== Tab Switch ==========
+        function switchAdminTab(tab) {
+            document.querySelectorAll('#adminMainPage .tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            const tabMap = {
+                'dashboard': 'tabDashboard', 'users': 'tabUsers', 'sync': 'tabSync',
+                'notices': 'tabNotices', 'config': 'tabConfig', 'email': 'tabEmail', 'account': 'tabAccount'
+            };
+            const tabEl = document.querySelector(`.tab[onclick="switchAdminTab('${tab}')"]`);
+            if (tabEl) tabEl.classList.add('active');
+            const contentEl = document.getElementById(tabMap[tab]);
+            if (contentEl) contentEl.classList.add('active');
+
+            if (tab === 'dashboard') loadDashboard();
+            if (tab === 'users') loadUserList();
+            if (tab === 'sync') { loadSyncTasks(); }
+            if (tab === 'notices') { loadNotices(); loadIntros(); }
+            if (tab === 'account') { loadAdminInfo(); }
+        }
+
+        // ========== Helpers ==========
+        function authHeader() {
+            return { 'Authorization': 'Bearer ' + adminToken };
+        }
+
+        function showMsg(id, text, type) {
+            const el = document.getElementById(id);
+            if (el) { el.textContent = text; el.className = 'message ' + type; }
+        }
+
+        function showGlobalMsg(text, type) {
+            const el = document.getElementById('globalMsg');
+            el.textContent = text;
+            el.className = 'message ' + type;
+            setTimeout(() => { el.className = 'message'; }, 4000);
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('show');
+        }
+
+        // token 有效性预检：页面加载时验证一次，过期就直接显示登录页
+        async function preflightAuthCheck() {
+            if (!adminToken) return false;
+            try {
+                const res = await fetch(API + '/admin/info', {
+                    headers: { 'Authorization': 'Bearer ' + adminToken }
+                });
+                const data = await res.json();
+                if (data.code === 0) return true; // token 有效
+            } catch(e) {}
+            // token 无效，清理并留在登录页
+            adminToken = '';
+            adminInfo = null;
+            localStorage.removeItem('adminToken');
+            return false;
+        }
+
+        // ========== Init ==========
+        (function init() {
+            restoreAdminEmail();
+            if (adminToken) {
+                preflightAuthCheck().then(valid => {
+                    if (valid) loadAdminApp();
+                    // 无效时留在登录页（restoreAdminEmail 已恢复输入框）
+                });
+            }
+        })();
+
+        // ===== 密码显示/隐藏切换 =====
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.pwd-toggle');
+            if (!btn) return;
+            const input = document.getElementById(btn.getAttribute('data-target'));
+            if (!input) return;
+            if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+            else { input.type = 'password'; btn.textContent = '👁'; }
+        });
+    </script>
+</body>
+</html>
