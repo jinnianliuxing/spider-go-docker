@@ -1,0 +1,1855 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="GEOpQSXVdRwWVZV5p2gEl6">
+<head data-page-node-id="QdPC84BDIbWxGL41UoSOG7">
+    <meta charset="UTF-8" data-page-node-id="ROwP6vXH52sIYv7ElMXzPY">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="yPVYuRjop8eqDtTwnLytr0">
+    <title>Spider-Go 教务系统</title>
+    <style>
+        /* ============================================================
+           Spider-Go · 蛛丝成绩单  (Silk-Ledger identity)
+           纸 paper / 松墨 pine ink / 朱砂 seal — a transcript, not a dashboard
+           ============================================================ */
+        :root {
+            --bg: #F4F6FA;
+            --card-bg: #FFFFFF;
+            --text: #1F2A44;
+            --text-secondary: #4E5B78;
+            --text-muted: #8592AC;
+            --border: #DEE4EF;
+            --hairline: #E8EDF5;
+            --input-bg: #FBFCFE;
+            --input-border: #C6D0E2;
+            --accent: #2F5C9E;
+            --accent-strong: #234A85;
+            --accent-soft: #E3ECF8;
+            --accent-contrast: #FFFFFF;
+            --stat-bg: #EFF4FB;
+            --course-bg: #F6F9FD;
+            --course-item-bg: #E7EFF9;
+            --course-item-text: #33415E;
+            --hover-bg: #F3F7FC;
+            --th-bg: #EFF3FA;
+            --tab-bg: #E5EBF5;
+            --tab-hover: rgba(47,92,158,0.08);
+            --header-start: #2F5C9E;
+            --header-end: #1D3A63;
+            --seal: #BC4A2F;
+            --seal-soft: #FAEBE5;
+            --gold: #A87B18;
+            --gold-soft: #F7EFDA;
+            --info: #2E6E8E;
+            --info-soft: #E6EFF4;
+            --leaf: #2F8F5B;
+            --leaf-soft: #E7F2E9;
+            --sc-a: #2F8F5B;   /* 90+  */
+            --sc-b: #2E6E8E;   /* 80+  */
+            --sc-c: #A87B18;   /* 70+  */
+            --sc-d: #BF6B2C;   /* 60+  */
+            --sc-f: #BC4A2F;   /* <60  */
+            --chart-a: #274C85;
+            --chart-b: #5B8FD4;
+            --shadow-sm: 0 1px 2px rgba(31,48,36,0.07);
+            --shadow-md: 0 10px 26px -12px rgba(31,48,36,0.22);
+        }
+        .dark {
+            --bg: #10141F;
+            --card-bg: #182032;
+            --text: #E4EAF5;
+            --text-secondary: #A9B6CE;
+            --text-muted: #7583A0;
+            --border: #2A3550;
+            --hairline: #232D45;
+            --input-bg: #131A2B;
+            --input-border: #38466A;
+            --accent: #7EA6E0;
+            --accent-strong: #98BBEB;
+            --accent-soft: #202C48;
+            --accent-contrast: #0E1830;
+            --stat-bg: #1D2840;
+            --course-bg: #151E30;
+            --course-item-bg: #22304C;
+            --course-item-text: #CBD6EA;
+            --hover-bg: #1C2740;
+            --th-bg: #1B2540;
+            --tab-bg: #141C2E;
+            --tab-hover: rgba(126,166,224,0.12);
+            --header-start: #17203A;
+            --header-end: #0D1220;
+            --seal: #E08268;
+            --seal-soft: #39211A;
+            --gold: #D3AD55;
+            --gold-soft: #322A16;
+            --info: #82B5D4;
+            --info-soft: #16272f;
+            --leaf: #6FCB96;
+            --leaf-soft: #17301F;
+            --sc-a: #6FCB96;
+            --sc-b: #82B5D4;
+            --sc-c: #D3AD55;
+            --sc-d: #DD9457;
+            --sc-f: #E08268;
+            --chart-a: #2C3E63;
+            --chart-b: #7EA6E0;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
+            --shadow-md: 0 12px 30px -12px rgba(0,0,0,0.55);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::selection { background: var(--accent-soft); }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(rgba(47,92,158,0.05) 1px, transparent 1px) 0 0 / 26px 26px,
+                var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        body.dark { background:
+                radial-gradient(rgba(126,166,224,0.04) 1px, transparent 1px) 0 0 / 26px 26px,
+                var(--bg); }
+        .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+
+        /* ---- 头部：松墨横幅 + 蛛网纹理 + 朱砂丝线 ---- */
+        .header {
+            position: relative;
+            background: linear-gradient(120deg, var(--header-start) 0%, var(--header-end) 100%);
+            color: #fff;
+            padding: 20px 0;
+            margin-bottom: 28px;
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            border-bottom: 3px solid var(--seal);
+        }
+        .header::before {
+            content: '';
+            position: absolute; inset: 0;
+            background:
+                repeating-radial-gradient(circle at 88% -40%,
+                    transparent 0 30px, rgba(255,255,255,0.09) 30px calc(30px + 1px)),
+                repeating-conic-gradient(from 200deg at 88% -40%,
+                    transparent 0 26deg, rgba(255,255,255,0.07) 26deg 27.5deg);
+            pointer-events: none;
+        }
+        .dark .header::before { opacity: 0.55; }
+        .header .container { position: relative; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 {
+            font-family: "Kaiti SC", "STKaiti", KaiTi, "Songti SC", SimSun, serif;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .brand-seal {
+            flex: none;
+            width: 34px; height: 34px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: linear-gradient(150deg, #D05A3D, #A93E26);
+            color: #FFF7F0;
+            font-size: 19px;
+            font-family: "Kaiti SC", "STKaiti", KaiTi, serif;
+            border-radius: 8px;
+            transform: rotate(-6deg);
+            box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.35), 0 2px 6px rgba(0,0,0,0.3);
+            user-select: none;
+        }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .user-info { font-size: 13px; opacity: 0.92; font-variant-numeric: tabular-nums; }
+
+        /* ---- 按钮 ---- */
+        .btn {
+            padding: 8px 20px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.15s, border-color 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn-primary { background: var(--accent); color: var(--accent-contrast); box-shadow: var(--shadow-sm); }
+        .dark .btn-primary:hover { filter: brightness(1.08); }
+        .btn-success { background: var(--leaf); color: #FFFFFF; }
+        .dark .btn-success { color: #0F2413; }
+        .btn-danger { background: var(--seal); color: #fff; }
+        .btn-outline { background: transparent; color: var(--accent); border-color: currentColor; }
+        .btn-outline:hover { background: var(--accent-soft); }
+        .btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 7px; }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+        .btn-icon {
+            position: relative;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.35);
+            color: #fff;
+            border-radius: 50%;
+            width: 36px; height: 36px;
+            font-size: 17px;
+            cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            transition: background-color 0.2s, border-color 0.2s, transform 0.2s;
+        }
+        .btn-icon:hover { background: rgba(255,255,255,0.18); transform: rotate(12deg); }
+
+        /* ---- 卡片：纸面 + 账本双规线标题 ---- */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-sm);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .card > h2 {
+            font-family: "Songti SC", "STSong", SimSun, "Noto Serif CJK SC", serif;
+            font-size: 19px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            color: var(--text);
+            position: relative;
+        }
+        .card > h2::after {           /* 账本双规线：粗线压细线 */
+            content: '';
+            position: absolute; left: 0; right: 0; bottom: 0; height: 5px;
+            border-top: 2px solid var(--accent);
+            border-bottom: 1px solid var(--border);
+        }
+        .card h3 { font-size: 15px; margin-bottom: 12px; color: var(--text-secondary); font-weight: 600; }
+
+        /* ---- 表单 ---- */
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; margin-bottom: 6px; font-size: 12px; color: var(--text-secondary); font-weight: 600; letter-spacing: 0.04em; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--input-border);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--input-bg);
+            color: var(--text);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .form-group input::placeholder { color: var(--text-muted); opacity: 0.75; }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+        .form-row { display: flex; gap: 12px; }
+        .form-row .form-group { flex: 1; }
+        .form-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+        /* ---- 页签：账册索引耳 ---- */
+        .tabs {
+            display: flex; gap: 6px;
+            margin-bottom: 20px;
+            background: var(--tab-bg);
+            padding: 5px;
+            border-radius: 10px 10px 4px 4px;
+            border-bottom: 2px solid var(--accent);
+        }
+        .tab {
+            flex: 1;
+            padding: 10px 8px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 7px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: background-color 0.15s, color 0.15s;
+        }
+        .tab.active {
+            background: var(--card-bg);
+            color: var(--accent);
+            font-weight: 700;
+            font-family: "Songti SC", "STSong", SimSun, serif;
+            font-size: 15px;
+            box-shadow: var(--shadow-sm), inset 0 3px 0 var(--accent);
+        }
+        .tab:hover:not(.active) { color: var(--text); background: var(--tab-hover); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: rise 0.25s ease both; }
+        @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+        /* ---- 表格：横线账页，数字等宽 ---- */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--hairline); }
+        thead th {
+            background: var(--th-bg);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            border-top: 1px solid var(--border);
+            border-bottom: 2px solid var(--accent);
+        }
+        tbody tr:hover { background: var(--hover-bg); }
+        td { font-variant-numeric: tabular-nums; }
+
+        /* ---- 统计格 ---- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-item {
+            background: var(--stat-bg);
+            border: 1px solid var(--hairline);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+        .stat-item .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); font-family: ui-monospace, "SF Mono", Consolas, "Courier New", monospace; font-variant-numeric: tabular-nums; word-break: break-all; }
+        .stat-item .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 6px; letter-spacing: 0.06em; }
+
+        /* ---- 登录 / 注册 / 重置 ---- */
+        .auth-page { display: flex; justify-content: center; align-items: center; min-height: 78vh; }
+        .auth-card {
+            position: relative;
+            overflow: hidden;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 34px 32px 30px;
+            width: 400px;
+            max-width: 92%;
+            box-shadow: var(--shadow-md);
+        }
+        .auth-card::before {         /* 角落蛛网：同心丝环 */
+            content: '';
+            position: absolute; top: 0; right: 0;
+            width: 190px; height: 190px;
+            background:
+                repeating-radial-gradient(circle at top right,
+                    transparent 0 24px, var(--accent-soft) 24px calc(24px + 3px)),
+                repeating-conic-gradient(from 180deg at top right,
+                    transparent 0 32deg, var(--accent-soft) 32deg 35deg);
+            opacity: 0.75;
+            -webkit-mask-image: radial-gradient(circle at top right, #000 30%, transparent 72%);
+            mask-image: radial-gradient(circle at top right, #000 30%, transparent 72%);
+            pointer-events: none;
+        }
+        .auth-card > * { position: relative; }
+        .auth-card h2 {
+            font-family: "Kaiti SC", "STKaiti", KaiTi, "Songti SC", SimSun, serif;
+            text-align: left;
+            margin-bottom: 22px;
+            color: var(--text);
+            font-size: 24px;
+            letter-spacing: 0.05em;
+        }
+        .auth-card .auth-links { text-align: center; margin-top: 18px; font-size: 13px; color: var(--text-secondary); }
+        .auth-card .auth-links a { color: var(--accent); cursor: pointer; text-decoration: none; font-weight: 600; border-bottom: 1px dashed currentColor; }
+        .auth-card .auth-links a:hover { color: var(--accent-strong); border-bottom-style: solid; }
+
+        /* ---- 消息条：批注色条 ---- */
+        .message { padding: 11px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; display: none; line-height: 1.55; }
+        .message.error   { display: block; background: var(--seal-soft); color: var(--seal); border-left: 3px solid var(--seal); }
+        .message.success { display: block; background: var(--leaf-soft); color: var(--leaf); border-left: 3px solid var(--leaf); }
+        .message.info    { display: block; background: var(--info-soft); color: var(--info); border-left: 3px solid var(--info); }
+        .message.warning { display: block; background: var(--gold-soft); color: var(--gold); border-left: 3px solid var(--gold); }
+
+        /* ---- 加载：丝锭旋转 ---- */
+        .loading { text-align: center; padding: 42px; color: var(--text-muted); }
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 14px; height: 14px;
+            margin-left: 8px;
+            vertical-align: -2px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ---- 成绩分析图 ---- */
+        .analysis-chart { height: 210px; display: flex; align-items: flex-end; gap: 10px; padding: 20px 4px 26px; border-bottom: 1px solid var(--border); }
+        .chart-bar {
+            flex: 1;
+            background: linear-gradient(to top, var(--chart-a), var(--chart-b));
+            border-radius: 5px 5px 0 0;
+            min-height: 4px;
+            transition: height 0.3s;
+            position: relative;
+        }
+        .chart-bar .bar-label { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .chart-bar .bar-value { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+        /* ---- 课表：标本卡网格 ---- */
+        #courseContent { overflow-x: auto; }
+        .course-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; min-width: 620px; }
+        .course-header {
+            background: var(--header-start);
+            color: #fff;
+            padding: 8px 4px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            border-radius: 6px;
+        }
+        .dark .course-header { background: #26365A; color: #C7D8F2; }
+        .course-cell { background: var(--course-bg); padding: 6px; min-height: 62px; border-radius: 6px; font-size: 11px; border: 1px solid var(--hairline); }
+        .course-cell .course-item {
+            background: var(--course-item-bg);
+            color: var(--course-item-text);
+            padding: 5px 7px;
+            border-radius: 5px;
+            margin-bottom: 4px;
+            border-left: 3px solid var(--accent);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.15s;
+        }
+        .course-cell .course-item:hover { transform: translateY(-1px); }
+        .course-cell .course-item .name { font-weight: 700; }
+        .course-cell .course-item .detail { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+        /* ---- 密码显示切换 ---- */
+        .pwd-wrapper { position: relative; display: flex; align-items: center; }
+        .pwd-wrapper input { flex: 1; padding-right: 38px; }
+        .pwd-toggle {
+            position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; cursor: pointer; font-size: 17px; line-height: 1;
+            padding: 4px; opacity: 0.55; user-select: none;
+        }
+        .pwd-toggle:hover { opacity: 1; }
+
+        /* ---- 徽标：描边小签 ---- */
+        .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; }
+        .badge-success { background: var(--leaf-soft); color: var(--leaf); border: 1px solid currentColor; }
+        .badge-warning { background: var(--gold-soft); color: var(--gold); border: 1px solid currentColor; }
+        .badge-error   { background: var(--seal-soft); color: var(--seal); border: 1px solid currentColor; }
+        .badge-info    { background: var(--info-soft); color: var(--info); border: 1px solid currentColor; }
+
+        /* ---- 登录方式切换 ---- */
+        .login-method-tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--tab-bg); padding: 4px; border-radius: 8px; }
+        .login-method-tab { flex: 1; padding: 8px 4px; text-align: center; cursor: pointer; border-radius: 6px; font-size: 13px; color: var(--text-secondary); transition: background-color 0.15s, color 0.15s; white-space: nowrap; }
+        .login-method-tab.active { background: var(--card-bg); color: var(--accent); font-weight: 700; box-shadow: var(--shadow-sm), inset 0 2px 0 var(--accent); }
+        .login-method-tab:hover:not(.active) { color: var(--text); }
+
+        /* ---- 教务处跳转链接 ---- */
+        .jwc-link { display: inline-block; margin-top: 8px; padding: 6px 12px; background: var(--gold-soft); color: var(--gold); border: 1px solid currentColor; border-radius: 6px; font-size: 13px; text-decoration: none; }
+        .jwc-link:hover { filter: brightness(0.97); text-decoration: none; }
+        .jwc-link-external { color: var(--accent); text-decoration: underline; cursor: pointer; font-weight: 600; }
+        .jwc-link-external:hover { color: var(--accent-strong); }
+
+        /* ---- 周次滑杆 ---- */
+        .week-slider-container { display: flex; align-items: center; gap: 12px; margin: 8px 0 16px; }
+        .week-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 5px; border-radius: 999px; background: var(--input-border); outline: none; cursor: pointer; }
+        .week-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; appearance: none;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: var(--card-bg);
+            border: 3px solid var(--accent);
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.15s;
+        }
+        .week-slider::-moz-range-thumb {
+            width: 12px; height: 12px; border-radius: 50%;
+            background: var(--card-bg);
+            border: 3px solid var(--accent);
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+        }
+        .week-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+        /* ---- 周选择弹层 ---- */
+        .week-picker-overlay {
+            position: fixed; inset: 0;
+            background: rgba(20,32,22,0.45);
+            backdrop-filter: blur(2px);
+            z-index: 999;
+            display: none;
+            justify-content: center; align-items: center;
+        }
+        .week-picker-overlay.show { display: flex; }
+        .week-picker {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            width: 360px;
+            max-width: 92%;
+            box-shadow: var(--shadow-md);
+            animation: rise 0.2s ease both;
+        }
+        .week-picker h3 { text-align: center; margin-bottom: 16px; color: var(--text); font-family: "Songti SC", SimSun, serif; font-size: 17px; }
+        .week-picker-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        .week-picker-item {
+            padding: 9px 0; text-align: center;
+            border-radius: 8px; cursor: pointer;
+            font-size: 13px; color: var(--text-secondary);
+            background: var(--stat-bg);
+            border: 1px solid transparent;
+            transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+            font-variant-numeric: tabular-nums;
+        }
+        .week-picker-item:hover { border-color: var(--accent); color: var(--accent); }
+        .week-picker-item.active { background: var(--accent); color: var(--accent-contrast); font-weight: 700; }
+        .week-picker-close { text-align: center; margin-top: 16px; }
+        .week-display-click { cursor: pointer; padding: 4px 10px; border-radius: 6px; transition: background-color 0.15s; font-variant-numeric: tabular-nums; }
+        .week-display-click:hover { background: var(--accent-soft); }
+
+        /* ---- 服务到期横幅：斜纹警示带 ---- */
+        #expireBanner {
+            display: none;
+            text-align: center;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            color: #FFF9EC;
+            background: repeating-linear-gradient(-45deg, #C77E1F 0 14px, #B06D14 14px 28px);
+            text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+        }
+        #expireBanner.show { display: block; animation: bannerIn 0.4s ease both; }
+        @keyframes bannerIn { from { opacity: 0; } to { opacity: 1; } }
+        #expireBanner.expired { background: repeating-linear-gradient(-45deg, #C03A28 0 14px, #A82E1E 14px 28px); }
+
+        /* ---- 极简线性图标 ---- */
+        .ic { width: 16px; height: 16px; flex: none; display: inline-block; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+        .card > h2 .ic { width: 19px; height: 19px; vertical-align: -4px; color: var(--accent); }
+        .auth-card h2 { display: flex; align-items: center; gap: 10px; }
+        .auth-card h2 .ic { width: 22px; height: 22px; flex: none; vertical-align: 0; color: var(--seal); }
+        .tab { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+        .tab .ic { width: 15px; height: 15px; vertical-align: 0; opacity: 0.85; }
+        .login-method-tab { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+        .login-method-tab .ic { width: 13px; height: 13px; vertical-align: 0; opacity: 0.7; }
+        .btn-icon .ic { width: 18px; height: 18px; }
+        .week-picker h3 .ic { width: 17px; height: 17px; vertical-align: -3px; color: var(--accent); }
+
+        /* ---- 焦点可见性 & 动效偏好 ---- */
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+
+        /* ============================================================
+           布局重构 v1.0（designer 规格 I-1~I-9 / I-11）· 桌面规则
+           ============================================================ */
+        /* I-11 视觉细化：字阶与圆角（覆写生效，不改既有规则行） */
+        .card { border-radius: 14px; }
+        .card > h2 { font-size: 18px; letter-spacing: 0.03em; }
+        .stat-item .stat-value { font-size: 25px; }
+
+        /* I-1 容器放宽（≥1024 生效；≤768 沿用 12px 内边距） */
+        @media (min-width: 1024px) {
+            .container { max-width: 1120px; padding: 20px 24px; }
+        }
+
+        /* I-2 tabInfo 仪表栅格：grid-area 定位，DOM 零换位 */
+        .info-grid {
+            display: grid; gap: 16px;
+            grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+            grid-template-areas: "user sync" "bind bind" "notices intros";
+        }
+        .layout-cell { margin-bottom: 0; }
+        .layout-cell--user { grid-area: user; }
+        .layout-cell--sync { grid-area: sync; }
+        .layout-cell--bind { grid-area: bind; }
+        .layout-cell--notices { grid-area: notices; }
+        .layout-cell--intros { grid-area: intros; }
+
+        /* I-3 绑定绶带：朱砂警示带（高特异性只覆写此一实例） */
+        #bindAlert.message.info {
+            background: var(--seal-soft); color: var(--seal);
+            border-left: 4px solid var(--seal); border-radius: 10px;
+            padding: 12px 16px; font-weight: 600; letter-spacing: 0.02em;
+        }
+
+        /* I-4 同步卡主次分层：全量大按钮独占一行，三枚次级等宽一排 */
+        .layout-cell--sync .form-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .layout-cell--sync .form-actions .btn:first-child { grid-column: 1 / -1; padding: 12px; font-size: 15px; letter-spacing: 0.06em; border-radius: 9px; }
+        .layout-cell--sync #syncStatus { margin-top: 14px; }
+
+        /* I-5 绑定卡操作行右对齐 */
+        .bind-actions { justify-content: flex-end; }
+        @media (min-width: 1024px) {
+            .layout-cell--bind .form-row { max-width: 640px; }
+        }
+
+        /* I-6 通知/须知摘要壳：限高滚动 + 底部渐隐 */
+        .digest-scroll { max-height: 264px; overflow-y: auto; padding-right: 4px; }
+        .digest-scroll::-webkit-scrollbar { width: 4px; }
+        .digest-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .digest-fade { height: 22px; margin-top: -22px; position: relative; pointer-events: none; background: linear-gradient(to bottom, transparent, var(--card-bg)); }
+
+        /* I-7 课表粘性工具条：负 margin 让纸面底色盖住滚过内容 */
+        .course-toolbar {
+            position: sticky; top: 0; z-index: 30;
+            background: var(--bg);
+            margin: -24px -24px 16px; padding: 14px 24px 10px;
+            border-bottom: 1px solid var(--hairline);
+            box-shadow: 0 6px 14px -12px rgba(31,48,36,.35);
+        }
+
+        /* I-8 成绩/考试工具行统一 */
+        .card-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .card-toolbar h2 { border: none !important; padding: 0 !important; margin: 0 !important; }
+
+        /* I-9 成绩统计双卡紧凑并排（≤768 在媒体块内纵叠） */
+        .grade-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .grade-summary > div { padding: 12px 14px !important; border-radius: 10px; }
+
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            .header h1 { font-size: 19px; gap: 9px; }
+            .brand-seal { width: 28px; height: 28px; font-size: 15px; border-radius: 6px; }
+            .form-row { flex-direction: column; gap: 0; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .tabs { overflow-x: auto; }
+            .tab { padding: 9px 10px; font-size: 13px; white-space: nowrap; }
+            .card { padding: 16px; }
+            .auth-card { padding: 26px 20px; }
+
+            /* ---- 布局重构 v1.0 · 移动端降级（I-7 / I-9 / I-10） ---- */
+            .info-grid { grid-template-columns: 1fr; grid-template-areas: "user" "sync" "bind" "notices" "intros"; }
+            body { padding-bottom: 64px; padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+            .tabs {
+                position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+                margin: 0; border-radius: 0; border-bottom: none;
+                border-top: 2px solid var(--accent); background: var(--card-bg);
+                padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+                box-shadow: 0 -8px 20px -12px rgba(31,48,36,.4); overflow-x: auto;
+            }
+            .tab.active { box-shadow: inset 0 3px 0 var(--accent), var(--shadow-sm); }
+            .auth-page { min-height: 66vh; }
+            .course-toolbar { margin: -16px -16px 12px; padding: 12px 16px 8px; }
+            .grade-summary { grid-template-columns: 1fr; }
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body data-page-node-id="cBjUe3ys5Rwh3XbPYxBvK8">
+    <!-- 极简线性图标库（outlined · 2px 圆头 · currentColor） -->
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true" data-page-node-id="EfIDmbyeTzIcpWnCHWhl61">
+        <symbol id="i-key" viewBox="0 0 24 24" data-page-node-id="SdXB528V7XYZR57s4geK6B"><circle cx="7.5" cy="15.5" r="3.5" data-page-node-id="6OfcvqyJhMdm5Gsm6uH01z"/><path d="M10.5 12.5L21 2M15 8l3 3M18 5l2.5 2.5" data-page-node-id="VVOfLXYhr4j50NOhNG0LZ3"/></symbol>
+        <symbol id="i-msg" viewBox="0 0 24 24" data-page-node-id="6f9lVXHwew0hvbUTqJCPjd"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" data-page-node-id="5owLSY8vdxKkbB8kQvvp0K"/></symbol>
+        <symbol id="i-ban" viewBox="0 0 24 24" data-page-node-id="q9Jg6ybIEvDPXxXxmFOHdu"><circle cx="12" cy="12" r="9" data-page-node-id="L1NIgNBtGhAqkt1M7S9cNf"/><path d="M5.6 5.6l12.8 12.8" data-page-node-id="ItH7ModleP1tmUy4hC7ckn"/></symbol>
+        <symbol id="i-userplus" viewBox="0 0 24 24" data-page-node-id="cnot427kXeUsHmoZigLn96"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2" data-page-node-id="50R3zrrdBMM8cguXIQ9frB"/><circle cx="9" cy="7" r="4" data-page-node-id="pL2KjjBlAVzcF3d6CsdGgT"/><path d="M19 8v6M22 11h-6" data-page-node-id="hHu2k0XQlLv7yFO0gd1Ihk"/></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24" data-page-node-id="sS9gF2bXJbmWfolHjjDlTV"><rect x="3" y="11" width="18" height="10" rx="2" data-page-node-id="o87o1BvFCOHuI7KW912oOj"/><path d="M7 11V7a5 5 0 0110 0v4" data-page-node-id="DhvaChu7Vakk3Pk7KnA7B7"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24" data-page-node-id="5M7QzaNWIBGh7ZEoehH9tL"><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h16.9a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" data-page-node-id="X9Zndy9a1lhMYPJ75Di9oF"/><path d="M12 9v4M12 17h.01" data-page-node-id="q2DatcHqQWcAR8ZfQEfkN7"/></symbol>
+        <symbol id="i-user" viewBox="0 0 24 24" data-page-node-id="R2IkHZeoS91RliMt50PP6G"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" data-page-node-id="qWr9OjQidGGGe6MiCRlYOW"/><circle cx="12" cy="7" r="4" data-page-node-id="5NOa8EdE8EciBfxIvNbS4l"/></symbol>
+        <symbol id="i-userc" viewBox="0 0 24 24" data-page-node-id="OAClIk9OkAsFEexHkJk9jy"><circle cx="12" cy="12" r="9.5" data-page-node-id="Y1XcOIBKTsUOmBUtiu3m3y"/><circle cx="12" cy="10" r="3.2" data-page-node-id="L1gM5kS7KV0qyL1hOVK79G"/><path d="M5.8 18.7a7.5 7.5 0 0112.4 0" data-page-node-id="DHEjt945MoDzBnx1wKCumV"/></symbol>
+        <symbol id="i-chart" viewBox="0 0 24 24" data-page-node-id="MImKwDkbGcrqheLIKhujXg"><path d="M18 20V10M12 20V4M6 20v-6" data-page-node-id="bU0j88s2dwGwlUyBjRIRXZ"/></symbol>
+        <symbol id="i-cal" viewBox="0 0 24 24" data-page-node-id="bMJ3NFUBONsDCOkxmE0der"><rect x="3" y="4" width="18" height="17" rx="2" data-page-node-id="HTAmG3FwY5NxmXeWTsvmBk"/><path d="M16 2v4M8 2v4M3 10h18" data-page-node-id="pcACxEoHEQpukBkbCix2sX"/></symbol>
+        <symbol id="i-file" viewBox="0 0 24 24" data-page-node-id="BhHWUckteVJIM1ZyYw8XHo"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" data-page-node-id="J0kAL8kuUcl9wENK0TUGdB"/><path d="M14 2v6h6M16 13H8M16 17H8" data-page-node-id="sHS8XeIThzWAkW58sZXYzL"/></symbol>
+        <symbol id="i-horn" viewBox="0 0 24 24" data-page-node-id="1dB6RD7fgasQRBheEML0zb"><path d="M3 11l18-5v12L3 13v-2z" data-page-node-id="b76CGIqU6o6wBFHf48119C"/><path d="M11.6 16.8a3 3 0 11-5.8-1.6" data-page-node-id="omlEJIic3wWRh1QoRrFWoF"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24" data-page-node-id="ol1WrmsJpTry4LsF4NoTIj"><circle cx="12" cy="12" r="9.5" data-page-node-id="1ht23hcujqg3Aucutkekch"/><path d="M12 16v-4M12 8h.01" data-page-node-id="tF1jhhstpK2U0DEQaDq8q7"/></symbol>
+        <symbol id="i-link" viewBox="0 0 24 24" data-page-node-id="8y2NbVHP84BZPi8NB0adHt"><path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.7 1.7" data-page-node-id="VQ5gEGw6CWAT1ULmXukxgl"/><path d="M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7l1.7-1.7" data-page-node-id="8iEbCYAInovRTJBfnTAV3D"/></symbol>
+        <symbol id="i-sync" viewBox="0 0 24 24" data-page-node-id="3GWKGgjqLho3lCYRQ2bDwm"><path d="M21 2v6h-6" data-page-node-id="ixjlsLPEftUfSskQTByDZP"/><path d="M3 12a9 9 0 0115.6-6.4L21 8" data-page-node-id="QBkKgQLhzQcYilMbi6Dopg"/><path d="M3 22v-6h6" data-page-node-id="1gFAyVsW1AFgEVmkfpHx50"/><path d="M21 12a9 9 0 01-15.6 6.4L3 16" data-page-node-id="iabQ0CRFQVzGvbQTm50MBO"/></symbol>
+        <symbol id="i-chl" viewBox="0 0 24 24" data-page-node-id="3jGFyNpBhXquknHY7RAzGo"><path d="M15 18l-6-6 6-6" data-page-node-id="Ls1sN1mjKiPhFpmr7KirE1"/></symbol>
+        <symbol id="i-chr" viewBox="0 0 24 24" data-page-node-id="VLiFwfAs4PZgrgl25E4Mwp"><path d="M9 18l6-6-6-6" data-page-node-id="286p7COehMoBCMrNw227UD"/></symbol>
+        <symbol id="i-eye" viewBox="0 0 24 24" data-page-node-id="WIfeA8wl4PuDVQXDGBtE5U"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" data-page-node-id="HDuCqfkxxDk6OMVkVvsCJL"/><circle cx="12" cy="12" r="3" data-page-node-id="lFBVhfv1vWsw6ZyPPKGBKw"/></symbol>
+        <symbol id="i-eyeoff" viewBox="0 0 24 24" data-page-node-id="OMMm1FhODGDBxPGIvfelWc"><path d="M17.9 17.9A10 10 0 0112 19c-6.5 0-10-7-10-7a17.7 17.7 0 015-5.9M9.9 4.2A9.1 9.1 0 0112 4c6.5 0 10 7 10 7a17.8 17.8 0 01-2.2 3.2M9.9 9.9a3 3 0 104.2 4.2" data-page-node-id="UBPc9hOCYoGxtCe8w7zrwI"/><path d="M2 2l20 20" data-page-node-id="WoH7Cb9CIB4eAVfralMvLV"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24" data-page-node-id="UGdNBYUvLzEU2RBbXya8Mt"><circle cx="12" cy="12" r="4.5" data-page-node-id="7hMvWgQ07iX7dop2gIVqfg"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6" data-page-node-id="551dQMBDh21lPmkR1FCmXC"/></symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24" data-page-node-id="BFWHHrPiWOO15AfSnm5Rdp"><path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" data-page-node-id="mGpJpRP7kmpEF8lAMODG94"/></symbol>
+        <symbol id="i-trophy" viewBox="0 0 24 24" data-page-node-id="nX8ap5Ku2B4gbGDJTGAB3x"><path d="M8 21h8M12 17v4" data-page-node-id="gQOYuHho3cdlBNp7FcESDQ"/><path d="M7 4h10v6a5 5 0 01-10 0V4z" data-page-node-id="X1tjnTydt09Dd7J36rJqGG"/><path d="M7 6H4a2 2 0 000 4h3M17 6h3a2 2 0 010 4h-3" data-page-node-id="oSJw0SdlWj6YEHzXwAxaTl"/></symbol>
+        <symbol id="i-trend" viewBox="0 0 24 24" data-page-node-id="5xWT5kNTviQRFb5MCPAg5A"><path d="M22 7l-8.5 8.5-5-5L2 17" data-page-node-id="I4alsPc9RcsozaXRfWLGEG"/><path d="M16 7h6v6" data-page-node-id="9u4yGZSB4AGlvrhyflqhYz"/></symbol>
+        <symbol id="i-mappin" viewBox="0 0 24 24" data-page-node-id="uRBFZp0pe1YIztIy2G8ybO"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" data-page-node-id="pGaWGqLaGdOAO9wNbWgUGx"/><circle cx="12" cy="10" r="3" data-page-node-id="snH5hAu2V9crMhVQ0v7CzL"/></symbol>
+        <symbol id="i-top" viewBox="0 0 24 24" data-page-node-id="RSr9VCnGLtEGE82OErBxcF"><circle cx="12" cy="12" r="9.5" data-page-node-id="r7xAaMoSfVVpjmT67HbjdL"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5" data-page-node-id="L70H3ht8bxHV0zD9qGtZyH"/></symbol>
+    </svg>
+    <div class="header" data-page-node-id="fVGrGbgTrj7w9nX5HVMQ9u">
+        <div class="container" data-page-node-id="8n7G0p7xQidWBBB1ikQ7ks">
+            <h1 data-page-node-id="bh4ZNTID436p73hFxXsbb0"><span class="brand-seal" data-page-node-id="yAPfDnRO3BsR9d8Vpoi4Ol">蛛</span><span data-page-node-id="H19Lu1GTCojwdhQ9s80b3D">Spider-Go 教务系统</span></h1>
+            <div class="header-right" data-page-node-id="c4sob7OWxA9qOjpUSgc2n7">
+                <span class="user-info hidden" id="headerUserInfo" data-page-node-id="a1Aej0inMhZrMkfOpH5IpD"></span>
+                <button class="btn-icon" id="btnTheme" onclick="toggleTheme()" title="切换主题" data-page-node-id="C00PFIyV0fPH1eJdvZS4ZC"><svg class="ic" data-page-node-id="Vt3r5aCVaEjcnRxBxLGgvq"><use href="#i-moon" data-page-node-id="qFttAyUqeZI8WOznRUlnHk"/></svg></button>
+                <button class="btn btn-outline btn-sm hidden" id="btnLogout" onclick="logout()" style="color:#fff;border-color:rgba(255,255,255,0.5);" data-page-node-id="rrx1g1wTxFgeLz0MafAvo1">退出登录</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="expireBanner" data-page-node-id="r5vOy9IBoFVMd0uPfiWSCG"></div>
+
+    <div class="container" data-page-node-id="EPDpqryEK9mnXDbqVszkBX">
+        <div id="message" class="message" data-page-node-id="8Gq0cdHubksN9kfnjAEwY6"></div>
+
+        <div id="pageLogin" class="auth-page" data-page-node-id="40RkADDikWs5amtZcIKJsd">
+            <div class="auth-card" data-page-node-id="NY0d9Q4YmqUUunqqkalCn0">
+                <h2 data-page-node-id="KZ3FCYkThznO726FLNPk7L"><svg class="ic" data-page-node-id="gtqFl6TboowGI2lNZaL4Tl"><use href="#i-key" data-page-node-id="UAFy7ZFWhaFDNFqtK0TBuW"/></svg>用户登录</h2>
+                <div id="loginMessage" class="message" data-page-node-id="topyWpDZlPuy3td3xzAWFL"></div>
+                <div class="login-method-tabs" data-page-node-id="11osCqIsRRXIAyrSomjQ9O">
+                    <div class="login-method-tab active" onclick="switchLoginMethod('password')" data-page-node-id="RQYwkwqrg9pKQYwmfHyHkH"><svg class="ic" data-page-node-id="QA9h2qVvbCdH8751Qk1EV1"><use href="#i-key" data-page-node-id="ff9sgpi8ibIw7VzBFrt0AB"/></svg>密码登录</div>
+                    <div class="login-method-tab" onclick="switchLoginMethod('captcha')" data-page-node-id="vVx1pK9WQPgRbcwIjl3Ea2"><svg class="ic" data-page-node-id="86IXrfdS8POPKLziMg59FH"><use href="#i-msg" data-page-node-id="XLT4ZtWGuhfbTwdElw81dY"/></svg>验证码登录</div>
+                    <!-- 链接登录已关闭 -->
+                    <div class="login-method-tab" style="opacity:0.3;pointer-events:none;cursor:default;" title="链接登录功能已关闭" data-page-node-id="bt4hvRSG0kwjlgbKmFv3k6"><svg class="ic" data-page-node-id="lDhkJR3cG0PGJHizdx6KUU"><use href="#i-ban" data-page-node-id="1IdyAZUkIxL9kLWU7TJRnF"/></svg>链接登录</div>
+                </div>
+                <div id="loginMethodPassword" data-page-node-id="zJw2da0tPWiRabBy4bg10m">
+                    <div class="form-group" data-page-node-id="ElBtKIH0Ng0XhCdnafT45S">
+                        <label data-page-node-id="EpagvNYzg4VFHbDHed9apN">邮箱</label>
+                        <input type="email" id="loginEmail" placeholder="请输入邮箱" data-page-node-id="6Hthok8aUYqO3GYuGhQCxB">
+                    </div>
+                    <div class="form-group" data-page-node-id="WaM64qZevkmBjUka5OYgWd">
+                        <label data-page-node-id="NtuGRcDSICGO5X9APLexEA">密码</label>
+                        <div class="pwd-wrapper" data-page-node-id="W8xTc3OIMRDiFKiuuMWRNF"><input type="password" id="loginPassword" placeholder="请输入密码" onkeydown="if(event.key==='Enter')login()" data-page-node-id="Kw6dp8NFoVRSjnTY3aefMS"><button type="button" class="pwd-toggle" data-target="loginPassword" tabindex="-1" data-page-node-id="4S49Z5K94TyQCym5LdeIxk"><svg class="ic" data-page-node-id="VX5LTFNEujrb7C0PZ4IPeI"><use href="#i-eye" data-page-node-id="cEM6GyiTduj9Fb8rGeim5X"/></svg></button></div>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="login()" data-page-node-id="mA08hCIXOEElllN0mfQTvg">登 录</button>
+                </div>
+                <div id="loginMethodCaptcha" class="hidden" data-page-node-id="o1o3KSoF1AFDvi3DbJJFUO">
+                    <div class="form-group" data-page-node-id="C1bb7gYjOksyuquGs76YeB">
+                        <label data-page-node-id="V3mpaTxJujRmid0Df2bL6x">邮箱</label>
+                        <input type="email" id="loginCaptchaEmail" placeholder="请输入邮箱" data-page-node-id="JquAkIS1dZjuw1VB8YkHcS">
+                    </div>
+                    <div class="form-group" data-page-node-id="UOY6f4V6TARhRAe2MG1LWP">
+                        <label data-page-node-id="jF9qvZdzI0j1CCoJSpLXSS">验证码</label>
+                        <div style="display:flex;gap:8px;" data-page-node-id="DMi7rawpMfomzwGK4i1uQS">
+                            <input type="text" id="loginCaptcha" placeholder="输入验证码" style="flex:1;" onkeydown="if(event.key==='Enter')loginByCaptcha()" data-page-node-id="URDEiQgwXvIBjI4JBzgiBu">
+                            <button class="btn btn-sm btn-outline" id="btnLoginSendCaptcha" onclick="sendLoginCaptcha()" style="white-space:nowrap;" data-page-node-id="9A1aQmpFab1UIQbhEWtF05">发送</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="loginByCaptcha()" data-page-node-id="2mJmHLRb7jG1Dr2I9Kwx4m">登 录</button>
+                </div>
+                <div id="loginMethodMagicLink" class="hidden" data-page-node-id="HuuAjSo48AjNkK3As5BFle">
+                    <div class="form-group" data-page-node-id="7vbiBDdafZPBW2MYGrBFX5">
+                        <label data-page-node-id="sXbwNrz8wHCKB8F4WENAND">邮箱</label>
+                        <input type="email" id="loginMagicLinkEmail" placeholder="请输入邮箱" onkeydown="if(event.key==='Enter')sendMagicLink()" data-page-node-id="u8PMpZwXJns2Vg0uNuHMiu">
+                    </div>
+                    <div style="text-align:center;font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;" data-page-node-id="mjuzfJ1BJxE0ETmndc2qEI">
+                        链接登录功能已关闭
+                    </div>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;opacity:0.5;cursor:not-allowed;" disabled data-page-node-id="wsj0U4aLZ9R3EWIEYsuDzi">📧 功能已关闭</button>
+                </div>
+                <div class="auth-links" data-page-node-id="CffAt4MP7VmZcVf29cmtqG">还没有账号？<a onclick="showRegister()" data-page-node-id="bLNKGNYHyRDIoKlgc6dVf1">立即注册</a> <span style="color:var(--text-muted);" data-page-node-id="Tf3ZqcUwdeQADZlpEYOhXl">|</span> <a onclick="showResetPwd()" data-page-node-id="ylOvbH6RjbSJWSAFTbv8IV">忘记密码</a></div>
+            </div>
+        </div>
+
+        <div id="pageRegister" class="auth-page hidden" data-page-node-id="AvBPxdYdfKPNbnBYe4GrIV">
+            <div class="auth-card" data-page-node-id="YHQtkhMaH7hQ1WpMCvYeuD">
+                <h2 data-page-node-id="9X6HslczZChy4rrCDVvjw0"><svg class="ic" data-page-node-id="ZK8Dkbb5yLGWvaG7w4y8IN"><use href="#i-userplus" data-page-node-id="7Q77zo0HPOAmvVDkCCmX9u"/></svg>用户注册</h2>
+                <div id="regMessage" class="message" data-page-node-id="uFdKdohG5J4IxZxdR82yWv"></div>
+                <div class="form-group" data-page-node-id="mlsQKVOsuiViNixyYv0pJG">
+                    <label data-page-node-id="F0FBBL32iNvgAttlGtt3cP">用户名</label>
+                    <input type="text" id="regName" placeholder="请输入用户名" data-page-node-id="6SHPTIqVukEWsKcxIaUAac">
+                </div>
+                <div class="form-group" data-page-node-id="EnjwcIlA5XjRkALZIkHeJ1">
+                    <label data-page-node-id="8TD3jE5yE2HCU0Gf7ZWRf3">邮箱</label>
+                    <input type="email" id="regEmail" placeholder="请输入邮箱" data-page-node-id="JVM1dKZ1UUN04Q0CjsbqiF">
+                </div>
+                <div class="form-row" data-page-node-id="xzdITbwC8fxEBJzCzqyVGN">
+                    <div class="form-group" style="flex:1;" data-page-node-id="obvkbvrJQhGahy5KVS8AE2">
+                        <label data-page-node-id="LYJgER6G7TvMt2YAeV7iCd">密码</label>
+                        <div class="pwd-wrapper" data-page-node-id="f5yP6sH0Icn46opH2wDuEx"><input type="password" id="regPassword" placeholder="至少6位" data-page-node-id="L4dD03lMQPBx6S3nQr7Mt5"><button type="button" class="pwd-toggle" data-target="regPassword" tabindex="-1" data-page-node-id="QTxy8gSNnCnOeh7zQYI0wC"><svg class="ic" data-page-node-id="29IgYgC9tF2BuTTZpB9Po9"><use href="#i-eye" data-page-node-id="jQg9yvka3X2duEgV9qDocg"/></svg></button></div>
+                    </div>
+                    <div class="form-group" style="flex:1;" data-page-node-id="vAZA6em8ylS20yLEw5KlBG">
+                        <label data-page-node-id="EHFnfXBVtMwn6UhpbSZyoC">验证码</label>
+                        <div style="display:flex;gap:8px;" data-page-node-id="gFwMKGUFMFkGkvEFnvm7OU">
+                            <input type="text" id="regCaptcha" placeholder="输入验证码" style="flex:1;" data-page-node-id="tvQrxm1vkDBQ0ip9GZaBAx">
+                            <button class="btn btn-sm btn-outline" id="btnSendCaptcha" onclick="sendCaptcha('reg')" style="white-space:nowrap;" data-page-node-id="BTLpJz1iAisTnYdHFuVjzz">发送</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-success" style="width:100%;padding:12px;" onclick="register()" data-page-node-id="nZ8yMCeiAFYTOekLrMUX5X">注 册</button>
+                <div class="auth-links" data-page-node-id="MP4MCauFqFB5pZjob5KPfC">已有账号？<a onclick="showLogin()" data-page-node-id="JYcTCIBkIqgJXkmbIEQBjE">立即登录</a></div>
+            </div>
+        </div>
+
+        <div id="pageResetPwd" class="auth-page hidden" data-page-node-id="uyXzIsEGSXOiFU6e2a6JiG">
+            <div class="auth-card" data-page-node-id="H0E40mN53HI7QeTG9jSLcZ">
+                <h2 data-page-node-id="0NkT44VZd7bDVfeRgCUbOq"><svg class="ic" data-page-node-id="0aCOkAwA7FByRzzngLKcBW"><use href="#i-lock" data-page-node-id="85U9L1vn56KwGVv5s3gWcA"/></svg>重置密码</h2>
+                <div id="resetMsg" class="message" data-page-node-id="V07e4nwl9t5mSQGKUBB5eH"></div>
+                <div class="form-group" data-page-node-id="9DhcGRXinF4I61i63XE4OD">
+                    <label data-page-node-id="LJ1wD1zCDreVN8C5x698Ve">邮箱</label>
+                    <input type="email" id="resetEmail" placeholder="请输入注册邮箱" data-page-node-id="Ojxp032lrqJTdgskPIPqMR">
+                </div>
+                <div class="form-group" data-page-node-id="tT1f65O5tI3OAEWXjbHfJK">
+                    <label data-page-node-id="Z8jJHK9FWJcs4CxifB2LfW">新密码</label>
+                    <div class="pwd-wrapper" data-page-node-id="vpYSttCz2GBuUQi2OlkLpB"><input type="password" id="resetPassword" placeholder="至少6位" data-page-node-id="jyJMeb6FyDtw4amBpRFnyd"><button type="button" class="pwd-toggle" data-target="resetPassword" tabindex="-1" data-page-node-id="4AEnMbd20zmfLtJmxD9PR5"><svg class="ic" data-page-node-id="Zb21iq7BmIGAXPnHN162Ws"><use href="#i-eye" data-page-node-id="JkVBsePmMzwEMcHUiHbAk1"/></svg></button></div>
+                </div>
+                <div class="form-group" data-page-node-id="I5oKNbJyegJnN6yCWAFeYj">
+                    <label data-page-node-id="AS5l3PdUm43k8FYyj3McIF">验证码</label>
+                    <div style="display:flex;gap:8px;" data-page-node-id="8URuhGsWgZkaFZhftW31Ex">
+                        <input type="text" id="resetCaptcha" placeholder="输入验证码" style="flex:1;" data-page-node-id="IXNQfFKLs8SW7MwPYWZFmE">
+                        <button class="btn btn-sm btn-outline" id="btnResetSendCaptcha" onclick="sendCaptcha('reset')" style="white-space:nowrap;" data-page-node-id="WnkDpxo6gX1hv594KfIUt6">发送</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="resetPassword()" data-page-node-id="zURNEuIqVcpj4yy4KUnxCY">重置密码</button>
+                <div class="auth-links" data-page-node-id="2xmiXXvd8zuv6a6d7mUeuM">想起密码了？<a onclick="showLogin()" data-page-node-id="5c7gASPFwXstcoQlH2LmH3">返回登录</a></div>
+            </div>
+        </div>
+
+        <div id="pageMain" class="hidden" data-page-node-id="WTMCmwpM7488s4tkaRQI9D">
+            <div id="bindAlert" class="message info hidden" data-page-node-id="qpClwd4Sj8h20ibVBkOyef"><svg class="ic" data-page-node-id="qmlk94PVZ9BDYAbvxUnpuy"><use href="#i-alert" data-page-node-id="GgKpSiGbXf4iDWdHiJN2XJ"/></svg>您还未绑定教务系统，请先绑定学号以使用查询功能。</div>
+            <div class="tabs" data-page-node-id="lcPPhab9kSdAHX7KwTQLno">
+                <div class="tab active" onclick="switchTab('info')" data-page-node-id="86hMmkaDCjh21vMaqfqEj2"><svg class="ic" data-page-node-id="UnjeEDSZoiXdwHcGESGXTs"><use href="#i-user" data-page-node-id="LmX5gJsGVWief62p8Y5TIF"/></svg>用户信息</div>
+                <div class="tab" onclick="switchTab('grades')" data-page-node-id="aRdFuka8jekz1ldHGV7VaJ"><svg class="ic" data-page-node-id="FBKGNA25qO59FlBKn4sFfr"><use href="#i-chart" data-page-node-id="0QJohfmFVytHAMzcQf750k"/></svg>成绩</div>
+                <div class="tab" onclick="switchTab('courses')" data-page-node-id="MGamOh1igQZEUBmyHm11UG"><svg class="ic" data-page-node-id="GHomIhgHTcfBpegvKl99QA"><use href="#i-cal" data-page-node-id="B2HCEpdTWWL2EhMTcHr4Xb"/></svg>课表</div>
+                <div class="tab" onclick="switchTab('exams')" data-page-node-id="pJsiruSOxXEhLz35V72LcO"><svg class="ic" data-page-node-id="F5RONoqFHcCHCQm3CoABXp"><use href="#i-file" data-page-node-id="VOI6cvfm6N4wMD9oG1iqKX"/></svg>考试</div>
+            </div>
+            <div id="tabInfo" class="tab-content active" data-page-node-id="pkZB4aDI0U1HtAeV1Tg9cY">
+              <div class="info-grid" data-page-node-id="iDAQIARARqdruxCW2EWOXZ">
+                <div id="publicNotices" class="card layout-cell layout-cell--notices" style="display:none;" data-page-node-id="0GQJlkBBCGocmB04B7ttTz"><h2 data-page-node-id="CC4H2VZa8XAir5v3BXUw6Z"><svg class="ic" data-page-node-id="olis8d33HerK9pwuIcRUBB"><use href="#i-horn" data-page-node-id="W50rj1VeIKZ4G7HAP0uUKT"/></svg>系统通知</h2><div class="digest-scroll" data-page-node-id="KiS13vh2vCNsGS06Zfpy1q"><div id="noticeList" data-page-node-id="24I0B0p6OV6N7rB6PDxHIA"></div></div><div class="digest-fade" data-page-node-id="qYn4TDBuJq9gE5Bv3lyiU4"></div></div>
+                <div id="publicIntros" class="card layout-cell layout-cell--intros" style="display:none;" data-page-node-id="pPZohAfoAzVLM33dGxZBXe"><h2 data-page-node-id="NkGrWVhBEPGQYCZozFtQrD"><svg class="ic" data-page-node-id="vjj4LVP4er4G0hJtuNZ7HU"><use href="#i-info" data-page-node-id="PATOKa8IzX1HZZr7TWmq9H"/></svg>使用须知</h2><div class="digest-scroll" data-page-node-id="mppwVULESG1HFhe6JLnNtg"><div id="introList" data-page-node-id="pMbS8PoaUSkNDu1jL73fCy"></div></div><div class="digest-fade" data-page-node-id="oJhlHCeEWBn0FWGvODpXyA"></div></div>
+                <div class="card layout-cell layout-cell--user" data-page-node-id="AGgHYTwxo2lQl2qCMDrnAi"><h2 data-page-node-id="VaiX0cIPuwzQ7EVWRQQyNX"><svg class="ic" data-page-node-id="9wZtUlgcLT4JdYPFsmTX8H"><use href="#i-userc" data-page-node-id="rjFcW4BMTbtLYeHMiHbvBT"/></svg>用户信息</h2><div id="userInfoContent" data-page-node-id="ddq5wm4YifugoWcFYiMYO3"></div></div>
+                <div class="card layout-cell layout-cell--bind" data-page-node-id="DexsUudrids2Ai0Tj5kBIh">
+                    <h2 data-page-node-id="Zx4LSPiekRbeCb5ZspgiLF"><svg class="ic" data-page-node-id="KxYTIrfPTu7GnWpfplNXW1"><use href="#i-link" data-page-node-id="OUdrlf1EvEemsoeiFJVX2U"/></svg>绑定教务系统</h2>
+                    <div id="bindMessage" class="message" data-page-node-id="bnaE05Jf19aH0XRdrtvjCm"></div>
+                    <div id="bindFormArea" data-page-node-id="wWHlil8MuBqxOuFsPEy0fy">
+                        <div class="form-row" data-page-node-id="6FArU4ywjWwL5myvB0Xmy2">
+                            <div class="form-group" data-page-node-id="3gujGLXEg0NQJmkzLCawfg"><label data-page-node-id="u2gDENYGrhIHZNi1RkVn9F">学号</label><input type="text" id="bindSid" placeholder="请输入学号" data-page-node-id="NdpHhICtF8OQDY26IpQS9X"></div>
+                            <div class="form-group" data-page-node-id="ZA82h5UWB6m1IIZrLrgcyB"><label data-page-node-id="x7s8CVQU6vRx5wogbY4zgd">教务系统密码</label><div class="pwd-wrapper" data-page-node-id="sOXkFXdQpV8qCMZnhIRnJN"><input type="password" id="bindSpwd" placeholder="请输入教务系统密码" onkeydown="if(event.key==='Enter')bindJwc()" data-page-node-id="uCmxTOBEyGhOdAaKWB2viX"><button type="button" class="pwd-toggle" data-target="bindSpwd" tabindex="-1" data-page-node-id="LtqsjiTBq9QgAw49MDIp6u"><svg class="ic" data-page-node-id="TVvcg3mA0xP4zTHAna9jB7"><use href="#i-eye" data-page-node-id="scdQN73YrCbjEZ46WkMg1q"/></svg></button></div></div>
+                        </div>
+                        <div class="bind-actions" style="display:flex;gap:10px;align-items:center;" data-page-node-id="7MUMYAvAgVzDMrZd1LONcZ">
+                            <button class="btn btn-primary" onclick="bindJwc()" data-page-node-id="FC5LKRISOgNEz1jGAP9XUb">立即绑定</button>
+                            <button class="btn btn-danger btn-sm hidden" id="btnUnbind" onclick="confirmUnbind()" data-page-node-id="kGtUzzUNDP6bIOdOl1ozrF">解绑学号</button>
+                        </div>
+                    </div>
+                    <div id="unbindCooldownInfo" class="hidden" style="margin-top:12px;font-size:13px;color:var(--text-muted);" data-page-node-id="Ei8MAwC2vgeBCRYRUfAxrk"></div>
+                </div>
+                <div class="card layout-cell layout-cell--sync" data-page-node-id="EiY9IBW6trUXy7GU9F5uov">
+                    <h2 data-page-node-id="BgKpmHS4KoykOI3Ac76my2"><svg class="ic" data-page-node-id="a2YFsuynEeAg6hmvrCGIUt"><use href="#i-sync" data-page-node-id="dqx3qVyeBbUOy0yKBuz1zE"/></svg>数据同步</h2>
+                    <div class="form-actions" data-page-node-id="d807SQtfzRWDnfGI112fXW">
+                        <button class="btn btn-sm btn-success" onclick="triggerSync('all')" data-page-node-id="aFc6hh4XytXE4dyYx9FCAm">全量同步</button>
+                        <button class="btn btn-sm btn-primary" onclick="triggerSync('grade')" data-page-node-id="EW7YCPnvmtrwFedJqrhIQu">同步成绩</button>
+                        <button class="btn btn-sm btn-primary" onclick="triggerSync('exam')" data-page-node-id="t6VW9KHpv5jCsPLurXykSs">同步考试</button>
+                        <button class="btn btn-sm btn-primary" onclick="triggerSync('course')" data-page-node-id="nKjYye2vG1276867oFy417">同步课表</button>
+                    </div>
+                    <div id="syncMessage" class="message" style="margin-top:12px;" data-page-node-id="ndw4DHfrzUhfjL8dbBbgqG"></div>
+                    <div id="syncStatus" style="margin-top:12px;font-size:13px;color:var(--text-muted);" data-page-node-id="9wrbSLVGxj9AnA4bjZKNYp"></div>
+                </div>
+              </div><!-- /.info-grid -->
+            </div>
+
+            <div id="tabGrades" class="tab-content" data-page-node-id="xVQSxMJxK8LUXCcpyKUp8q">
+                <div class="card" data-page-node-id="aUE2SEGdjKw5SfV5W94CJ0">
+                    <div class="card-toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;" data-page-node-id="7a4Gc1t35m2OP1xVb8cPDs">
+                        <h2 style="border:none;padding:0;margin:0;" data-page-node-id="Gse67liFdwGGC0otq84vn0"><svg class="ic" data-page-node-id="K2qZG79be3zGjgxrPtAo5Z"><use href="#i-chart" data-page-node-id="xQiQEHIIWx190iDcW3xr8Z"/></svg>成绩查询</h2>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" data-page-node-id="u13E05jfs2gQa0jT8yQVTd">
+                            <select id="gradeTerm" onchange="loadGrades()" style="padding:6px 10px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;background:var(--input-bg);color:var(--text);" data-page-node-id="Ccl29BAxcMy908DgRrlQPT"><option value="" data-page-node-id="QVE92stCKF5C1v2IG6pJ2N">所有学期</option></select>
+                            <button class="btn btn-sm btn-primary" onclick="loadGrades()" data-page-node-id="02zJYyJUyr26KihV8jHWxX">查询</button>
+                            <button class="btn btn-sm btn-outline" onclick="loadLevelGrades()" data-page-node-id="4GjH9A1uW59OCVu69Ggm6B">等级考试</button>
+                            <button class="btn btn-sm btn-outline" onclick="loadGradeAnalysis()" data-page-node-id="th9RPeFr4EW1W5EoocGi7g">成绩分析</button>
+                        </div>
+                    </div>
+                    <div id="gradeContent" data-page-node-id="IQNDsEn7tHCDZQAIMMQEH9"></div>
+                </div>
+            </div>
+
+            <div id="tabCourses" class="tab-content" data-page-node-id="j6S9s0QBdyamTEA6oJG1Bs">
+                <div class="card" data-page-node-id="SaSIAXGygwV5IXaUOL4PuL">
+                  <div class="course-toolbar" data-page-node-id="JbM26SgTFCYc2uhWSJFCCN">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px;" data-page-node-id="nNTx9uxfE2BDjaBl0T9AAA">
+                        <h2 style="border:none;padding:0;margin:0;" data-page-node-id="ojlq2cfenpR2R23nK1BseX"><svg class="ic" data-page-node-id="UyCF66jaKcgsuoguzoR67A"><use href="#i-cal" data-page-node-id="u1dXwQuNqne7OjqDvzk7Ez"/></svg>课程表</h2>
+                        <div style="display:flex;gap:8px;align-items:center;" data-page-node-id="CNBwTSs9bXvbKCAxiRnFSR">
+                            <select id="courseTerm" style="padding:6px 10px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;background:var(--input-bg);color:var(--text);" onchange="currentWeek=1;initWeekSlider();loadCourses()" data-page-node-id="wWvDSfCFV2JGkV5DgEXZbL"></select>
+                            <button class="btn btn-sm btn-outline" onclick="changeWeek(-1)" data-page-node-id="eRGFrAX7I8Sz7OFYsHUkKl"><svg class="ic" data-page-node-id="iGDQnDA6veKo2t7Lf1xYw1"><use href="#i-chl" data-page-node-id="MhHfLVe181LN02RhRtZihQ"/></svg></button>
+                            <span id="weekDisplay" class="week-display-click" onclick="showWeekPicker()" style="font-weight:600;font-size:14px;" data-page-node-id="FfAXdj2AmX74cGHRqNkaJ2">第 1 周</span>
+                            <button class="btn btn-sm btn-outline" onclick="changeWeek(1)" data-page-node-id="AJn0T5cAG7nvdykEj87X9a"><svg class="ic" data-page-node-id="K37lRcVjnQRi41hhNcA2pO"><use href="#i-chr" data-page-node-id="MHL6dSznSz0whQFn6CWhEY"/></svg></button>
+                        </div>
+                    </div>
+                    <div class="week-slider-container" data-page-node-id="g5ABhpRWD3kQDEnw6CmOwE">
+                        <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;" data-page-node-id="HvuGnQ7IeKJL4UiCCD2EU2">第1周</span>
+                        <input type="range" id="weekSlider" class="week-slider" min="1" max="20" value="1" oninput="onWeekSliderChange(this.value)" data-page-node-id="WiNGONY5XAhc5jwqGhaDcr">
+                        <span style="font-size:12px;color:var(--text-muted);white-space:nowrap;" data-page-node-id="zmaKgb5FJjzOxfGDMCiPAM">第20周</span>
+                    </div>
+                  </div><!-- /.course-toolbar -->
+                    <div id="courseContent" data-page-node-id="P8GbVhb11Vs7gazYXLFi86"></div>
+                </div>
+            </div>
+
+            <div class="week-picker-overlay" id="weekPickerOverlay" onclick="hideWeekPicker(event)" data-page-node-id="iKHDQaDP6WuKA28IbCZwA6">
+                <div class="week-picker" onclick="event.stopPropagation()" data-page-node-id="Yg2IGh8zKfHBi2fLJTGkcq">
+                    <h3 data-page-node-id="ha4sKHWVip458CiCXd08nU"><svg class="ic" data-page-node-id="cF3Y9kEsYicSFH2TEYgOpU"><use href="#i-cal" data-page-node-id="Q1Ba7UgQjsnEDsBAvhYRu1"/></svg>选择周数</h3>
+                    <div class="week-picker-grid" id="weekPickerGrid" data-page-node-id="V1Tyby8joCuD16i7l1TIvG"></div>
+                    <div class="week-picker-close" data-page-node-id="iFTDFZDDUsr5dv1l5lzhj7"><button class="btn btn-sm btn-outline" onclick="hideWeekPicker()" data-page-node-id="nJFFDAdDPkBKGr7mmgw8jw">取消</button></div>
+                </div>
+            </div>
+
+            <div id="tabExams" class="tab-content" data-page-node-id="Pg6DjQ0DUy9D8ifigYFcj0">
+                <div class="card" data-page-node-id="WtblXxOcNnKRt7a8E3tsHs">
+                    <div class="card-toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;" data-page-node-id="sf1VnzJUF1brIpHaZUltgK">
+                        <h2 style="border:none;padding:0;margin:0;" data-page-node-id="us7iMs5IBHkdWKTwpaRor6"><svg class="ic" data-page-node-id="NhR4PXW8MJBIH7fEYLCzQi"><use href="#i-file" data-page-node-id="rKv8CU59rgVCI1AeTRHdNZ"/></svg>考试安排</h2>
+                        <div style="display:flex;gap:8px;align-items:center;" data-page-node-id="VHuxnE5bhbPZ3Y7wIAFspX">
+                            <select id="examTerm" style="padding:6px 10px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;background:var(--input-bg);color:var(--text);" onchange="loadExams()" data-page-node-id="saiuFTHQ6K8LBURoBh7M3a"></select>
+                            <button class="btn btn-sm btn-primary" onclick="loadExams()" data-page-node-id="9UYFh4Kshr4GwPQaj2bhZ5">查询</button>
+                        </div>
+                    </div>
+                    <div id="examContent" data-page-node-id="kFcJHvIMRbpWEYPqteTYin"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        const JWC_LOGIN_URL = 'https://cas.csuft.edu.cn/cas/login';
+        let token = localStorage.getItem('token') || '';
+        let currentUser = null;
+        let currentWeek = 1;
+        let currentTerm = '';
+        let currentLoginMethod = 'password';
+
+        // ========== XSS 防护 ==========
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // ========== Theme ==========
+        const MOON_IC = '<svg class="ic"><use href="#i-moon"/></svg>', SUN_IC = '<svg class="ic"><use href="#i-sun"/></svg>';
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark');
+            localStorage.setItem('darkTheme', isDark ? '1' : '');
+            document.getElementById('btnTheme').innerHTML = isDark ? SUN_IC : MOON_IC;
+        }
+        if (localStorage.getItem('darkTheme')) { document.body.classList.add('dark'); document.getElementById('btnTheme').innerHTML = SUN_IC; }
+
+        // 从服务器刷新 currentUser 的 is_bind 状态，确保各页面使用最新数据
+        async function refreshCurrentUser() {
+            const data = await apiFetch(API_BASE + '/user/info');
+            if (data && data.code === 0) {
+                currentUser = data.data;
+            }
+        }
+
+        // ========== Auth ==========
+        function showRegister() { document.getElementById('pageLogin').classList.add('hidden'); document.getElementById('pageRegister').classList.remove('hidden'); document.getElementById('pageResetPwd').classList.add('hidden'); }
+        function showLogin() { document.getElementById('pageRegister').classList.add('hidden'); document.getElementById('pageResetPwd').classList.add('hidden'); document.getElementById('pageLogin').classList.remove('hidden'); }
+        function showResetPwd() { document.getElementById('pageLogin').classList.add('hidden'); document.getElementById('pageRegister').classList.add('hidden'); document.getElementById('pageResetPwd').classList.remove('hidden'); }
+
+        function switchLoginMethod(method) {
+            currentLoginMethod = method;
+            document.querySelectorAll('.login-method-tab').forEach(t => t.classList.remove('active'));
+            // 安全：只用固定字符串匹配，防止 CSS 选择器注入
+            document.querySelectorAll('.login-method-tab').forEach(t => {
+                const text = t.textContent.trim();
+                if ((method === 'password' && text.includes('密码')) ||
+                    (method === 'captcha' && text.includes('验证码')) ||
+                    (method === 'magiclink' && text.includes('链接'))) {
+                    t.classList.add('active');
+                }
+            });
+            document.getElementById('loginMethodPassword').classList.toggle('hidden', method !== 'password');
+            document.getElementById('loginMethodCaptcha').classList.toggle('hidden', method !== 'captcha');
+            document.getElementById('loginMethodMagicLink').classList.toggle('hidden', method !== 'magiclink');
+            showMsg('loginMessage', '', 'info');
+            document.getElementById('loginMessage').className = 'message';
+        }
+
+        // Magic Link 功能已关闭
+        async function sendMagicLink() {
+            showMsg('loginMessage', '链接登录功能已关闭', 'error');
+        }
+
+        (function checkMagicLinkCallback() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenParam = urlParams.get('token');
+            if (tokenParam) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        })();
+
+        async function apiFetch(url, options = {}) {
+            const headers = options.headers || {};
+            if (!headers['Content-Type'] && options.method !== 'GET' && options.method !== 'DELETE') {
+                headers['Content-Type'] = 'application/json';
+            }
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            try {
+                const res = await fetch(url, { ...options, headers });
+                const data = await res.json();
+                if (data.code === 40101 || data.code === 40100 || data.code === 40400) {
+                    logout();
+                    return null;
+                }
+                return data;
+            } catch(e) {
+                showGlobalMsg('网络错误', 'error');
+                return null;
+            }
+        }
+
+        async function sendCaptcha(type) {
+            let email = '';
+            let msgId = '';
+            let btnId = '';
+            if (type === 'reg') {
+                email = document.getElementById('regEmail').value;
+                msgId = 'regMessage';
+                btnId = 'btnSendCaptcha';
+            } else if (type === 'reset') {
+                email = document.getElementById('resetEmail').value;
+                msgId = 'resetMsg';
+                btnId = 'btnResetSendCaptcha';
+            }
+            if (!email) { showMsg(msgId, '请先输入邮箱', 'error'); return; }
+            const btn = document.getElementById(btnId);
+            btn.disabled = true; btn.textContent = '发送中...';
+            try {
+                const res = await fetch(API_BASE + '/captcha/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg(msgId, '验证码已发送到邮箱', 'success');
+                    let count = 60; btn.textContent = `${count}s`;
+                    const timer = setInterval(() => { count--; if (count <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '发送'; } else btn.textContent = `${count}s`; }, 1000);
+                } else { showMsg(msgId, data.message || '发送失败', 'error'); btn.disabled = false; btn.textContent = '发送'; }
+            } catch(e) { showMsg(msgId, '网络错误', 'error'); btn.disabled = false; btn.textContent = '发送'; }
+        }
+
+        async function register() {
+            const name = document.getElementById('regName').value;
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const captcha = document.getElementById('regCaptcha').value;
+            if (!name || !email || !password || !captcha) { showMsg('regMessage', '请填写所有字段', 'error'); return; }
+            try {
+                const res = await fetch(API_BASE + '/user/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, email, password, captcha }) });
+                const data = await res.json();
+                if (data.code === 0) { showMsg('regMessage', '注册成功！正在登录...', 'success'); token = data.data.token; localStorage.setItem('token', token); setTimeout(() => loadApp(), 500); }
+                else { showMsg('regMessage', data.message || '注册失败', 'error'); }
+            } catch(e) { showMsg('regMessage', '网络错误', 'error'); }
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            if (!email || !password) { showMsg('loginMessage', '请填写邮箱和密码', 'error'); return; }
+            try {
+                const res = await fetch(API_BASE + '/user/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+                const data = await res.json();
+                if (data.code === 0) { token = data.data.token; currentUser = data.data.user; localStorage.setItem('token', token); showMsg('loginMessage', '登录成功', 'success'); setTimeout(() => loadApp(), 300); }
+                else { showMsg('loginMessage', data.message || '登录失败', 'error'); }
+            } catch(e) { showMsg('loginMessage', '网络错误', 'error'); }
+        }
+
+        async function sendLoginCaptcha() {
+            const email = document.getElementById('loginCaptchaEmail').value;
+            if (!email) { showMsg('loginMessage', '请先输入邮箱', 'error'); return; }
+            const btn = document.getElementById('btnLoginSendCaptcha');
+            btn.disabled = true; btn.textContent = '发送中...';
+            try {
+                const res = await fetch(API_BASE + '/captcha/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+                const data = await res.json();
+                if (data.code === 0) {
+                    showMsg('loginMessage', '验证码已发送到邮箱', 'success');
+                    let count = 60; btn.textContent = `${count}s`;
+                    const timer = setInterval(() => { count--; if (count <= 0) { clearInterval(timer); btn.disabled = false; btn.textContent = '发送'; } else btn.textContent = `${count}s`; }, 1000);
+                } else { showMsg('loginMessage', data.message || '发送失败', 'error'); btn.disabled = false; btn.textContent = '发送'; }
+            } catch(e) { showMsg('loginMessage', '网络错误', 'error'); btn.disabled = false; btn.textContent = '发送'; }
+        }
+
+        async function loginByCaptcha() {
+            const email = document.getElementById('loginCaptchaEmail').value;
+            const captcha = document.getElementById('loginCaptcha').value;
+            if (!email || !captcha) { showMsg('loginMessage', '请填写邮箱和验证码', 'error'); return; }
+            try {
+                const res = await fetch(API_BASE + '/user/login/captcha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, captcha }) });
+                const data = await res.json();
+                if (data.code === 0) { token = data.data.token; currentUser = data.data.user; localStorage.setItem('token', token); showMsg('loginMessage', '登录成功', 'success'); setTimeout(() => loadApp(), 300); }
+                else { showMsg('loginMessage', data.message || '登录失败', 'error'); }
+            } catch(e) { showMsg('loginMessage', '网络错误', 'error'); }
+        }
+
+        async function resetPassword() {
+            const email = document.getElementById('resetEmail').value;
+            const password = document.getElementById('resetPassword').value;
+            const captcha = document.getElementById('resetCaptcha').value;
+            if (!email || !password || !captcha) { showMsg('resetMsg', '请填写所有字段', 'error'); return; }
+            try {
+                const res = await fetch(API_BASE + '/user/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, captcha }) });
+                const data = await res.json();
+                if (data.code === 0) { showMsg('resetMsg', '密码重置成功！请返回登录', 'success'); setTimeout(() => showLogin(), 2000); }
+                else { showMsg('resetMsg', data.message || '重置失败', 'error'); }
+            } catch(e) { showMsg('resetMsg', '网络错误', 'error'); }
+        }
+
+        function logout() {
+            token = ''; currentUser = null; localStorage.removeItem('token');
+            document.getElementById('pageMain').classList.add('hidden');
+            document.getElementById('pageLogin').classList.remove('hidden');
+            document.getElementById('headerUserInfo').classList.add('hidden');
+            document.getElementById('btnLogout').classList.add('hidden');
+            document.getElementById('loginEmail').value = ''; document.getElementById('loginPassword').value = '';
+        }
+
+        async function loadApp() {
+            document.getElementById('pageLogin').classList.add('hidden');
+            document.getElementById('pageRegister').classList.add('hidden');
+            document.getElementById('pageResetPwd').classList.add('hidden');
+            document.getElementById('pageMain').classList.remove('hidden');
+            document.getElementById('headerUserInfo').classList.remove('hidden');
+            document.getElementById('btnLogout').classList.remove('hidden');
+
+            const data = await apiFetch(API_BASE + '/user/info');
+            if (!data) return;
+            if (data.code === 0) {
+                currentUser = data.data;
+                document.getElementById('headerUserInfo').textContent = `👋 ${escapeHtml(currentUser.name)}`;
+                await loadNotices();
+                await loadIntros();
+                renderUserInfo();
+                await loadCurrentTerm();
+                await loadGrades();
+                await loadCourses();
+                await loadExams();
+                loadSyncStatus();
+                startExpireCountdown();
+            }
+        }
+
+        // 服务器到期倒计时
+        // 到期时间：2027-06-15 00:00:00（可修改此行更新）
+        function startExpireCountdown() {
+            const EXPIRE_DATE = new Date('2027-06-15T00:00:00').getTime();
+            const el = document.getElementById('expireBanner');
+            if (!el) return;
+            el.classList.add('show');
+
+            function update() {
+                const now = Date.now();
+                const diff = EXPIRE_DATE - now;
+                if (diff <= 0) {
+                    el.textContent = '⚠️ 网站服务已到期';
+                    el.classList.add('expired');
+                    return;
+                }
+                const days = Math.floor(diff / 86400000);
+                const hours = Math.floor((diff % 86400000) / 3600000);
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                el.textContent = `⏳ 网站剩余运行时间：${days} 天 ${hours} 时 ${minutes} 分 ${seconds} 秒`;
+            }
+
+            update();
+            setInterval(update, 1000);
+        }
+
+        // ========== 通知/须知（XSS 防护：使用 textContent 转义） ==========
+        async function loadIntros() {
+            try {
+                const res = await fetch(API_BASE + '/introductions');
+                const data = await res.json();
+                if (data.code === 0 && data.data && data.data.length > 0) {
+                    const el = document.getElementById('publicIntros');
+                    el.style.display = 'block';
+                    let html = '';
+                    data.data.forEach(n => {
+                        const time = n.update_time ? new Date(n.update_time).toLocaleString() : '';
+                        const content = escapeHtml(n.content || '').replace(/\n/g, '<br>');
+                        const link = n.is_redirect && n.link ? 
+                            `<a href="${n.link.replace(/"/g, '&quot;')}" target="_blank" style="color:var(--accent);" rel="noopener noreferrer"><svg class="ic"><use href="#i-link"/></svg>查看详情</a>` : '';
+                        html += `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+                            <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:4px;">${content}</div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <span style="font-size:11px;color:var(--text-muted);">${escapeHtml(time)}</span>
+                                ${link}
+                            </div>
+                        </div>`;
+                    });
+                    document.getElementById('introList').innerHTML = html;
+                }
+            } catch(e) {}
+        }
+
+        async function loadNotices() {
+            try {
+                const res = await fetch(API_BASE + '/notices');
+                const data = await res.json();
+                if (data.code === 0 && data.data && data.data.length > 0) {
+                    const el = document.getElementById('publicNotices');
+                    el.style.display = 'block';
+                    let html = '';
+                    data.data.forEach(n => {
+                        const time = n.create_time ? new Date(n.create_time).toLocaleString() : '';
+                        const top = n.is_top ? '<svg class="ic"><use href="#i-top"/></svg>' : '';
+                        // 安全渲染：如果 is_html 标记为 true，仅允许 safe HTML 标签
+                        let content = '';
+                        if (n.is_html) {
+                            // 只允许安全的 HTML 标签，过滤 script/onerror 等
+                            content = (n.content || '').replace(/<script[\s\S]*?<\/script>/gi, '')
+                                .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+                                .replace(/on\w+\s*=\s*'[^']*'/gi, '');
+                        } else {
+                            content = escapeHtml(n.content || '').replace(/\n/g, '<br>');
+                        }
+                        html += `<div style="padding:10px 0;border-bottom:1px solid var(--border);${n.is_top ? 'background:var(--stat-bg);margin:0 -12px;padding:10px 12px;border-radius:8px;' : ''}">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                                <strong>${top} ${escapeHtml(n.notice_type || '系统公告')}</strong>
+                                <span style="font-size:11px;color:var(--text-muted);">${escapeHtml(time)}</span>
+                            </div>
+                            <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${content}</div>
+                        </div>`;
+                    });
+                    document.getElementById('noticeList').innerHTML = html;
+                }
+            } catch(e) {}
+        }
+
+        async function loadCurrentTerm() {
+            try {
+                const res = await fetch(API_BASE + '/config/term');
+                const data = await res.json();
+                if (data.code === 0 && data.data && data.data.term) { currentTerm = data.data.term; populateTermSelect('courseTerm', currentTerm); populateTermSelect('examTerm', currentTerm); }
+            } catch(e) {}
+            if (!currentTerm) {
+                const now = new Date(); const y = now.getFullYear(); const m = now.getMonth() + 1;
+                currentTerm = m >= 8 ? `${y}-${y+1}-1` : m >= 2 ? `${y-1}-${y}-2` : `${y-1}-${y}-1`;
+                populateTermSelect('courseTerm', currentTerm); populateTermSelect('examTerm', currentTerm);
+            }
+        }
+
+        function populateTermSelect(id, selected) {
+            const sel = document.getElementById(id); sel.innerHTML = '';
+            const now = new Date(); const y = now.getFullYear();
+            for (let i = 0; i < 4; i++) {
+                [`${y-i}-${y-i+1}-1`, `${y-i}-${y-i+1}-2`].forEach(t => {
+                    const opt = document.createElement('option'); opt.value = t; opt.textContent = t; if (t === selected) opt.selected = true; sel.appendChild(opt);
+                });
+            }
+            const gSel = document.getElementById('gradeTerm');
+            if (gSel) { gSel.innerHTML = '<option value="">所有学期</option>'; sel.querySelectorAll('option').forEach(opt => { if (opt.value) { const c = opt.cloneNode(true); gSel.appendChild(c); } }); }
+        }
+
+        // ========== 用户信息（XSS 防护） ==========
+        function renderUserInfo() {
+            if (!currentUser) return;
+            const bs = currentUser.is_bind ? '<span class="badge badge-success">已绑定</span>' : '<span class="badge badge-warning">未绑定</span>';
+            const uid = escapeHtml('' + (currentUser.uid || ''));
+            const name = escapeHtml(currentUser.name || '-');
+            const email = escapeHtml(currentUser.email || '-');
+            const sid = escapeHtml(currentUser.sid || '-');
+            document.getElementById('userInfoContent').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-item"><div class="stat-value">${uid}</div><div class="stat-label">用户ID</div></div>
+                    <div class="stat-item"><div class="stat-value" style="font-size:16px;">${name}</div><div class="stat-label">用户名</div></div>
+                    <div class="stat-item"><div class="stat-value" style="font-size:16px;">${email}</div><div class="stat-label">邮箱</div></div>
+                    <div class="stat-item"><div class="stat-value" style="font-size:16px;">${sid}</div><div class="stat-label">学号 ${bs}</div></div>
+                </div>
+                <div style="font-size:13px;color:var(--text-muted);margin-top:8px;">注册时间: ${currentUser.created_at ? new Date(currentUser.created_at).toLocaleString() : '-'}</div>`;
+            const ba = document.getElementById('bindAlert');
+            if (!currentUser.is_bind) ba.classList.remove('hidden'); else ba.classList.add('hidden');
+            const sidInput = document.getElementById('bindSid');
+            const spwdInput = document.getElementById('bindSpwd');
+            const btnBind = document.querySelector('#bindFormArea .btn-primary');
+            const btnUnbind = document.getElementById('btnUnbind');
+            if (currentUser.is_bind) {
+                sidInput.value = currentUser.sid;
+                sidInput.readOnly = true;
+                sidInput.style.background = 'var(--input-bg)';
+                sidInput.style.opacity = '0.6';
+                sidInput.style.cursor = 'not-allowed';
+                sidInput.placeholder = '已绑定学号';
+                spwdInput.placeholder = '输入新密码以更新教务系统密码';
+                spwdInput.value = '';
+                btnBind.textContent = '更新密码';
+                btnUnbind.classList.remove('hidden');
+            } else if (currentUser && currentUser.sid) {
+                // 绑定失效但仍有历史学号：自动填充，用户只需输密码
+                sidInput.value = currentUser.sid;
+                sidInput.readOnly = true;
+                sidInput.style.background = 'var(--input-bg)';
+                sidInput.style.opacity = '0.6';
+                sidInput.style.cursor = 'not-allowed';
+                sidInput.placeholder = '已绑定学号';
+                spwdInput.placeholder = '请输入更新后的教务系统密码';
+                spwdInput.value = '';
+                btnBind.textContent = '更新密码';
+                btnUnbind.classList.add('hidden');
+            } else {
+                sidInput.value = '';
+                sidInput.readOnly = false;
+                sidInput.style.opacity = '1';
+                sidInput.style.cursor = '';
+                sidInput.placeholder = '请输入学号';
+                spwdInput.placeholder = '请输入教务系统密码';
+                spwdInput.value = '';
+                btnBind.textContent = '立即绑定';
+                btnUnbind.classList.add('hidden');
+            }
+        }
+
+        // ===== 绑定教务系统 - 短信验证码二次验证（MFA）=====
+        // 教务系统对异地/服务器 IP 登录可能要求多因素认证(40011)。后端已提供
+        //   POST /user/bind/mfa/send   触发短信，返回 { challenge_id, masked_phone }
+        //   POST /user/bind/mfa/verify 提交短信码完成绑定，body { challenge_id, code }
+        // 这里不再引导用户去教务网页手动验证(对服务器IP无效)，而是走短信码完成绑定。
+        async function startBindMFA(sid, spwd) {
+            const btn = document.querySelector('#bindFormArea .btn-primary');
+            if (btn) { btn.disabled = true; btn.textContent = '发送验证码中...'; }
+            const sendRes = await apiFetch(API_BASE + '/user/bind/mfa/send', { method: 'POST', body: JSON.stringify({ sid, spwd }) });
+            if (btn) { btn.disabled = false; const isB = currentUser && (currentUser.is_bind || currentUser.sid); btn.textContent = isB ? '更新密码' : '立即绑定'; }
+            if (!sendRes) return;
+            if (sendRes.code !== 0 || !sendRes.data || !sendRes.data.challenge_id) {
+                showMsgHtml('bindMessage', `<div>${escapeHtml(sendRes.data && sendRes.data.message || sendRes.message || '短信验证发送失败，请稍后重试')}</div><div style="margin-top:8px;">👉 如仍失败，请前往<a class="jwc-link-external" href="${JWC_LOGIN_URL}" target="_blank" rel="noopener noreferrer">教务系统登录页面</a>登录一次后，再回到此处点击「立即绑定」</div>`, 'error');
+                return;
+            }
+            showBindMFAOverlay(sendRes.data.challenge_id, sendRes.data.masked_phone, sid, spwd);
+        }
+
+        let _mfaVerifyRunning = false;
+        let _mfaChallengeId = '';
+        function showBindMFAOverlay(challengeId, maskedPhone, sid, spwd) {
+            _mfaChallengeId = challengeId;
+            closeBindMFAOverlay();
+            const rawPhone = maskedPhone || '';
+            // securePhone 可能是已脱敏(含 *)或完整号：若含 * 直接展示；否则显示“尾号 xxxx”
+            let phoneText = '绑定手机';
+            if (rawPhone.includes('*')) phoneText = escapeHtml(rawPhone);
+            else if (rawPhone.replace(/\D/g, '').slice(-4)) phoneText = '尾号 ' + escapeHtml(rawPhone.replace(/\D/g, '').slice(-4));
+            const ov = document.createElement('div');
+            ov.id = 'bindMFAOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,25,0.55);z-index:1200;display:flex;align-items:center;justify-content:center;padding:16px;';
+            ov.innerHTML = `
+                <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.25);width:100%;max-width:380px;padding:22px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <div style="font-size:16px;font-weight:700;color:var(--text,#1f2937);">短信安全验证</div>
+                        <button onclick="closeBindMFAOverlay()" style="border:none;background:transparent;font-size:20px;line-height:1;color:var(--text-muted,#6b7280);cursor:pointer;" aria-label="关闭">&times;</button>
+                    </div>
+                    <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:14px;">
+                        教务系统检测到本次登录来自新的网络环境，需要短信验证。验证码已发送至 <b>${phoneText}</b> 的手机，请输入后完成绑定。
+                    </div>
+                    <input id="mfaCodeInput" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="请输入6位短信验证码"
+                        style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--input-border,#d1d5db);border-radius:8px;font-size:15px;letter-spacing:4px;text-align:center;background:var(--input-bg,#fff);color:var(--text,#1f2937);"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();verifyBindMFA();}">
+                    <div id="mfaCodeMsg" class="message" style="margin-top:10px;font-size:13px;"></div>
+                    <div style="display:flex;gap:10px;margin-top:6px;">
+                        <button class="btn btn-outline" style="flex:1;" onclick="closeBindMFAOverlay()">取消</button>
+                        <button class="btn btn-primary" style="flex:1.6;" id="mfaVerifyBtn" onclick="verifyBindMFA()">确认绑定</button>
+                    </div>
+                    <div style="margin-top:12px;font-size:12px;text-align:center;">
+                        <span style="color:var(--text-muted,#6b7280);">没收到？</span>
+                        <a href="javascript:void(0)" style="color:var(--accent,#667eea);" onclick="resendBindMFA()">重新发送</a>
+                        <span id="mfaCountdown" style="color:var(--text-muted,#6b7280);margin-left:4px;"></span>
+                    </div>
+                </div>`;
+            document.body.appendChild(ov);
+            const input = document.getElementById('mfaCodeInput');
+            if (input) setTimeout(() => input.focus(), 60);
+            startMFACountdown();
+        }
+
+        let _mfaCdTimer = null;
+        function startMFACountdown() {
+            if (_mfaCdTimer) clearInterval(_mfaCdTimer);
+            const el = document.getElementById('mfaCountdown');
+            if (!el) return;
+            let left = 60;
+            el.textContent = `(${left}s后可重发)`;
+            _mfaCdTimer = setInterval(() => {
+                left--;
+                if (left <= 0) { clearInterval(_mfaCdTimer); _mfaCdTimer = null; el.textContent = ''; return; }
+                el.textContent = `(${left}s后可重发)`;
+            }, 1000);
+        }
+
+        function closeBindMFAOverlay() {
+            if (_mfaCdTimer) { clearInterval(_mfaCdTimer); _mfaCdTimer = null; }
+            const ov = document.getElementById('bindMFAOverlay');
+            if (ov) ov.remove();
+        }
+
+        async function resendBindMFA() {
+            const sid = document.getElementById('bindSid').value;
+            const spwd = document.getElementById('bindSpwd').value;
+            if (!sid || !spwd) { showMsg('bindMessage', '请重新填写学号和密码后点击绑定', 'error'); closeBindMFAOverlay(); return; }
+            await startBindMFA(sid, spwd);
+        }
+
+        async function verifyBindMFA() {
+            const challengeId = _mfaChallengeId;
+            const code = (document.getElementById('mfaCodeInput') || {}).value ? document.getElementById('mfaCodeInput').value.trim() : '';
+            if (!code) { showMsg('mfaCodeMsg', '请输入短信验证码', 'error'); return; }
+            if (_mfaVerifyRunning) return;
+            _mfaVerifyRunning = true;
+            const msgEl = document.getElementById('mfaCodeMsg');
+            const btn = document.getElementById('mfaVerifyBtn');
+            if (msgEl) msgEl.innerHTML = ''; if (msgEl) msgEl.className = 'message';
+            if (btn) { btn.disabled = true; btn.textContent = '验证中...'; }
+            const data = await apiFetch(API_BASE + '/user/bind/mfa/verify', { method: 'POST', body: JSON.stringify({ challenge_id: challengeId, code }) });
+            _mfaVerifyRunning = false;
+            if (btn) { btn.disabled = false; btn.textContent = '确认绑定'; }
+            if (!data) return;
+            if (data.code === 0) {
+                showMsg('bindMessage', '绑定成功！', 'success');
+                document.getElementById('bindSpwd').value = '';
+                closeBindMFAOverlay();
+                await loadApp();
+            } else {
+                if (msgEl) { showMsg('mfaCodeMsg', data.message || '验证失败，请重试', 'error'); }
+                // 若会话已失效，关掉浮层提示重新发起绑定
+                if (data.code === 40011 || (data.message || '').includes('会话不存在') || (data.message || '').includes('过期')) {
+                    closeBindMFAOverlay();
+                    showMsgHtml('bindMessage', `<div>${escapeHtml(data.message || '验证会话已过期')}</div><div style="margin-top:8px;">请重新点击「立即绑定」，再次输入学号密码即可收到新验证码。</div>`, 'error');
+                }
+            }
+        }
+
+        async function bindJwc() {
+            const sid = document.getElementById('bindSid').value, spwd = document.getElementById('bindSpwd').value;
+            const isBound = currentUser && currentUser.is_bind;
+            const hasHistorySid = currentUser && currentUser.sid;
+            if (!sid || !spwd) { showMsg('bindMessage', (isBound || hasHistorySid) ? '请输入新密码' : '请填写学号和密码', 'error'); return; }
+            const btn = document.querySelector('#bindFormArea .btn-primary');
+            btn.disabled = true;
+            btn.textContent = '绑定中...';
+            const data = await apiFetch(API_BASE + '/user/bind', { method: 'POST', body: JSON.stringify({ sid, spwd }) });
+            btn.disabled = false;
+            btn.textContent = (isBound || hasHistorySid) ? '更新密码' : '立即绑定';
+            if (!data) return;
+            if (data.code === 0) {
+                showMsg('bindMessage', (isBound || hasHistorySid) ? '密码更新成功！' : '绑定成功！', 'success');
+                document.getElementById('bindSpwd').value = '';
+                await loadApp();
+            } else {
+                let msg;
+                const isUpdate = isBound || hasHistorySid;
+                if (data.code === 40004) {
+                    msg = isUpdate ? '教务系统密码错误，请检查后重试' : (data.message || '学号或密码错误');
+                } else {
+                    msg = data.message || (isUpdate ? '密码更新失败' : '绑定失败');
+                }
+                if (data.code === 40011) {
+                    // 教务系统要求多因素认证：走短信验证码完成绑定（对服务器/异地IP有效）
+                    showMsgHtml('bindMessage', '<div>正在发起短信安全验证…</div>', 'info');
+                    await startBindMFA(sid, spwd);
+                } else {
+                    showMsg('bindMessage', msg, 'error');
+                }
+            }
+        }
+
+        function confirmUnbind() {
+            if (!currentUser || !currentUser.sid) return;
+            const msg = `确定要解绑学号 ${escapeHtml(currentUser.sid)} 吗？\n\n这将清除该学号下的所有数据（成绩、课表、考试等），且解绑后 24 小时内无法再次操作。\n\n解绑后你可以绑定新的学号。`;
+            if (confirm(msg)) doUnbind();
+        }
+
+        async function doUnbind() {
+            const data = await apiFetch(API_BASE + '/user/unbind', { method: 'POST' });
+            if (!data) return;
+            if (data.code === 0) {
+                showMsg('bindMessage', '解绑成功！所有统数据已清除，你可以绑定新的学号。', 'success');
+                document.getElementById('unbindCooldownInfo').classList.add('hidden');
+                await loadApp();
+            } else if (data.code === 40012) {
+                showMsg('bindMessage', data.message, 'error');
+                document.getElementById('unbindCooldownInfo').textContent = (data.message || '');
+                document.getElementById('unbindCooldownInfo').classList.remove('hidden');
+            } else {
+                showMsg('bindMessage', data.message || '解绑失败', 'error');
+            }
+        }
+
+        async function triggerSync(taskType) {
+            const data = await apiFetch(API_BASE + '/user/sync/trigger', { method: 'POST', body: JSON.stringify({ task_type: taskType }) });
+            if (!data) return;
+            if (data.code === 0) { showMsg('syncMessage', `同步任务已启动 (${taskType})`, 'success'); setTimeout(() => loadSyncStatus(), 2000); }
+            else { showMsg('syncMessage', data.message || '启动同步失败', 'error'); }
+        }
+
+        async function loadSyncStatus() {
+            const data = await apiFetch(API_BASE + '/user/sync/status');
+            if (!data || data.code !== 0) return;
+            const s = data.data || {};
+            document.getElementById('syncStatus').innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;">
+                ${renderSyncItem('成绩', s.grade_status)}${renderSyncItem('平时分', s.regular_grade_status)}${renderSyncItem('考试', s.exam_status)}${renderSyncItem('等级考试', s.level_exam_status)}${renderSyncItem('课表', s.course_status)}
+            </div>`;
+        }
+        function renderSyncItem(label, st) {
+            if (!st) return `<div style="background:var(--stat-bg);padding:10px;border-radius:8px;font-size:12px;color:var(--text);"><strong>${escapeHtml(label)}</strong><br>暂无数据</div>`;
+            return `<div style="background:var(--stat-bg);padding:10px;border-radius:8px;font-size:12px;color:var(--text);"><strong>${escapeHtml(label)}</strong><br>记录数: ${escapeHtml('' + (st.record_count||0))}<br>版本: ${escapeHtml('' + (st.sync_version||0))}<br>最近: ${st.last_sync_at ? new Date(st.last_sync_at).toLocaleString() : '未同步'}</div>`;
+        }
+
+        // ========== 成绩（XSS 防护） ==========
+        async function loadGrades() {
+            // 刷新用户信息，确保 is_bind 是最新状态
+            await refreshCurrentUser();
+            if (currentUser && !currentUser.is_bind) {
+                document.getElementById('gradeContent').innerHTML = '<div style="text-align:center;padding:40px 20px;"><p style="color:var(--text-muted);margin-bottom:12px;">您还未绑定教务系统</p><p style="color:var(--text-muted);font-size:13px;">请前往「用户信息」页面绑定学号后查询成绩</p></div>';
+                return;
+            }
+            const term = document.getElementById('gradeTerm').value;
+            document.getElementById('gradeContent').innerHTML = '<div class="loading">加载中...</div>';
+            const data = await apiFetch(API_BASE + '/user/grades' + (term ? `?term=${term}` : ''));
+            if (!data || data.code !== 0) { document.getElementById('gradeContent').innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(data?.message || '暂无成绩数据')}</p>`; return; }
+            renderGrades(data.data);
+        }
+
+        function renderGrades(data) {
+            const grades = data.grades || [];
+            if (grades.length === 0) { document.getElementById('gradeContent').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无成绩数据</p>'; return; }
+
+            let totalGpa = 0, totalScore = 0, totalCredit = 0, validCount = 0;
+            let mainGpa = 0, mainScore = 0, mainCredit = 0, mainValid = 0;
+            // 公选/任选/公共选修 等明确不属于"必修"的标签（用于展示灰显与剔除）。
+            // 注意：不把"通识"直接当公选标签——教务里"通识教育课程"常为"必修"课程属性，
+            // 是否计入以课程属性 course_property(kcsx) 是否"必修"为准，课程性质 property(kcxzmc) 不做剔除依据。
+            const excludeProps = ['公选', '任选', '公共选修'];
+            // 展示用：是否公选/任选类（课程属性 course_property(kcsx) 优先，其次课程性质 property）
+            function isElective(g) {
+                const props = [g.course_property, g.property];
+                for (let i = 0; i < props.length; i++) {
+                    const p = props[i];
+                    if (!p) continue;
+                    if (excludeProps.some(k => p.indexOf(k) >= 0)) return true;
+                }
+                return false;
+            }
+            // 课程属性 course_property(kcsx) 是否为"必修"（评奖评优唯一计入口径）
+            function isRequired(g) {
+                if (g.course_property) return g.course_property.indexOf('必修') >= 0;
+                // 兼容 course_property 缺失的历史数据：仅接受课程性质字面含"必修"
+                return g.property ? g.property.indexOf('必修') >= 0 : false;
+            }
+            // 评奖评优计入口径：仅"课程属性 kcsx=必修" 且非公选/任选类（与后端 grade.IsAwardEligible 对齐）
+            function isAwardEligible(g) {
+                return isRequired(g) && !isElective(g);
+            }
+            // 单科绩点（统一算法，与后端 grade.handelGp 口径一致）：
+            //   1) 优先采用教务下发的 gpa(jd)——若教务已算好直接用；
+            //   2) jd 缺失或为 0（教务未重算绩点/数据异常）时，按统一公式 (成绩-60)÷10+1 兜底现算，
+            //      避免"全部课程/仅必修"平均绩点因单科 jd 全空而塌成 0。
+            //   等级文字映射：不及格/不合格=0，及格/合格=1.0，中=2.0，良=3.0，优=4.0；数字分<60 视为未通过给 0。
+            function effectiveGp(g) {
+                const raw = parseFloat(g.gpa);
+                if (!isNaN(raw) && raw > 0) return raw;
+                const t = ('' + g.score).trim();
+                switch (t) {
+                    case '不及格': case '不合格': return 0;
+                    case '及格': case '合格': return 1.0;
+                    case '中': return 2.0;
+                    case '良': return 3.0;
+                    case '优': return 4.0;
+                }
+                const s = parseFloat(g.score);
+                if (isNaN(s) || s < 60) return 0;          // 数字分未通过 → 绩点 0
+                const gp = (s - 60) / 10 + 1;              // 统一公式：(成绩-60)÷10+1
+                return Math.round(gp * 1000) / 1000;       // 保留 3 位，与后端 round3 一致
+            }
+
+            grades.forEach(g => {
+                const s = parseFloat(g.score), c = parseFloat(g.credit) || 0, gp = effectiveGp(g);
+                if (!isNaN(s) && s > 0) { totalScore += s; validCount++; }
+                if (gp > 0 && c > 0) { totalGpa += gp * c; totalCredit += c; }
+                if (isAwardEligible(g)) {
+                    if (!isNaN(s) && s > 0) { mainScore += s; mainValid++; }
+                    if (gp > 0 && c > 0) { mainGpa += gp * c; mainCredit += c; }
+                }
+            });
+
+            let avgGpa = totalCredit > 0 ? totalGpa / totalCredit : 0;
+            let avgScore = validCount > 0 ? totalScore / validCount : 0;
+            let basicScore = avgScore;
+            let mainAvgGpa = mainCredit > 0 ? mainGpa / mainCredit : 0;
+            let mainAvgScore = mainValid > 0 ? mainScore / mainValid : 0;
+
+            let html = `<div class="grade-summary" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div style="background:var(--stat-bg);border-radius:8px;padding:12px;">
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">全部课程</div>
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+                        <div><span style="font-size:20px;font-weight:700;color:var(--accent);">${avgGpa.toFixed(3)}</span><br><span style="font-size:11px;color:var(--text-muted);">平均绩点</span></div>
+                        <div><span style="font-size:20px;font-weight:700;color:var(--accent);">${avgScore.toFixed(1)}</span><br><span style="font-size:11px;color:var(--text-muted);">平均分</span></div>
+                        <div><span style="font-size:20px;font-weight:700;color:var(--accent);">${basicScore.toFixed(1)}</span><br><span style="font-size:11px;color:var(--text-muted);">基础分</span></div>
+                        <div><span style="font-size:20px;font-weight:700;color:var(--accent);">${grades.length}</span><br><span style="font-size:11px;color:var(--text-muted);">课程数</span></div>
+                    </div>
+                </div>
+                <div class="grade-summary-main" style="background:var(--stat-bg);border-radius:8px;padding:12px;border:2px solid var(--leaf);">
+                    <div style="font-size:12px;color:var(--leaf);font-weight:600;margin-bottom:6px;">仅必修课（评奖评优，不含公选）</div>
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+                        <div><span style="font-size:20px;font-weight:700;color:var(--leaf);">${mainAvgGpa.toFixed(3)}</span><br><span style="font-size:11px;color:var(--text-muted);">平均绩点</span></div>
+                        <div><span style="font-size:20px;font-weight:700;color:var(--leaf);">${mainAvgScore.toFixed(1)}</span><br><span style="font-size:11px;color:var(--text-muted);">平均分</span></div>
+                        <div><span style="font-size:20px;font-weight:700;color:var(--leaf);">${mainAvgScore.toFixed(1)}</span><br><span style="font-size:11px;color:var(--text-muted);">基础分</span></div>
+                        <div><span style="font-size:20px;font-weight:700;color:var(--leaf);">${grades.filter(g => isAwardEligible(g)).length}</span><br><span style="font-size:11px;color:var(--text-muted);">课程数</span></div>
+                    </div>
+                </div>
+            </div>`;
+
+            html += `<table><thead><tr><th>学期</th><th>课程代码</th><th>课程名称</th><th>成绩</th><th>学分</th><th>绩点</th><th>课程性质 / 课程属性(必修)</th></tr></thead><tbody>`;
+            grades.forEach(g => {
+                const sc = parseInt(g.score) >= 90 ? 'var(--sc-a)' : parseInt(g.score) >= 80 ? 'var(--sc-b)' : parseInt(g.score) >= 70 ? 'var(--sc-c)' : parseInt(g.score) >= 60 ? 'var(--sc-d)' : 'var(--sc-f)';
+                const isElec = isElective(g);
+                const isReq = isRequired(g);
+                const propText = (g.course_property && g.course_property !== g.property) ? (g.property + ' / ' + g.course_property) : (g.course_property || g.property || '-');
+                const badge = isReq && !isElec ? ' <span style="font-size:10px;color:#fff;background:var(--leaf);border-radius:3px;padding:0 4px;">计入</span>' : (isElec ? ' <span style="font-size:10px;color:var(--text-muted);border:1px solid var(--text-muted);border-radius:3px;padding:0 4px;">公选</span>' : '');
+                html += `<tr style="${isElec ? 'opacity:0.6;' : ''}">
+                    <td>${escapeHtml(g.term||'-')}</td>
+                    <td>${escapeHtml(g.code||'-')}</td>
+                    <td><strong>${escapeHtml(g.subject||'-')}</strong>${badge}</td>
+                    <td style="color:${sc};font-weight:700;">${escapeHtml('' + (g.score||'-'))}</td>
+                    <td>${escapeHtml('' + (g.credit||'-'))}</td>
+                    <td>${effectiveGp(g) > 0 ? effectiveGp(g).toFixed(3) : '-'}</td>
+                    <td>${escapeHtml(propText)}</td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            html += '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">评奖评优仅计入「课程属性」为必修的课程；<span style="color:var(--leaf);font-weight:600;">计入</span> = 计入评奖评优，<span style="opacity:0.6;">灰显</span> = 公选/任选不计入。课程性质（公共课/通识教育课程等）不参与判断。</div>';
+            document.getElementById('gradeContent').innerHTML = html;
+        }
+
+        async function loadLevelGrades() {
+            document.getElementById('gradeContent').innerHTML = '<div class="loading">加载中...</div>';
+            const data = await apiFetch(API_BASE + '/user/grades/level');
+            if (!data || data.code !== 0) { document.getElementById('gradeContent').innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(data?.message||'暂无数据')}</p>`; return; }
+            let html = '<h3 style="margin-bottom:12px;"><svg class="ic"><use href="#i-trophy"/></svg>等级考试成绩</h3>';
+            if (!data.data || data.data.length === 0) html += '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无等级考试成绩</p>';
+            else {
+                html += `<table><thead><tr><th>序号</th><th>考试名称</th><th>成绩</th><th>考试时间</th></tr></thead><tbody>`;
+                data.data.forEach(g => { html += `<tr><td>${escapeHtml('' + (g.no||'-'))}</td><td><strong>${escapeHtml(g.CourseName||'-')}</strong></td><td style="font-weight:700;color:var(--accent);">${escapeHtml('' + (g.LevelGrade||'-'))}</td><td>${escapeHtml(g.Time||'-')}</td></tr>`; });
+                html += '</tbody></table>';
+            }
+            document.getElementById('gradeContent').innerHTML = html;
+        }
+
+        // 辅助：将接口返回的学期数组转成 从旧到新 的时间序（接口是 当前学期在前）
+        function analysisChrono(ss) {
+            return (ss || []).slice().reverse().filter(s => s && (s.average_gpa || s.average_score || s.total_credit || s.course_count));
+        }
+        // 绘制：学期GPA折线 + 学分负载条形，纯CSS/SVG自绘（不依赖外部图表库）
+        function drawGpaTrend(cards) {
+            const n = cards.length;
+            if (n === 0) return '';
+            const W = 640, H = 200, PADL = 12, PADR = 12, TOP = 26, BOT = 34;
+            const plotW = W - PADL - PADR;
+            const plotH = H - TOP - BOT;
+            const slot = plotW / n;
+            const valid = cards.filter(c => c.average_gpa > 0);
+            let maxGpa = Math.max(4.0, ...valid.map(c => c.average_gpa)) + 0.2;
+            maxGpa = Math.min(maxGpa, 5.0);
+            // 学分条形相对高度（占底部 plotH 的比例）
+            const maxCredit = Math.max(...cards.map(c => c.total_credit), 0.01);
+            let bars = '', pts = '', segs = '';
+            // 统一用页面主题色；通过 CSS 变量取色，避免手写深浅两套
+            const lineColor = 'var(--accent)';
+            const barColor = 'rgba(95,120,180,0.12)';
+            cards.forEach((c, i) => {
+                const cx = PADL + slot * i + slot / 2;
+                const yGpa = TOP + plotH - ((c.average_gpa / maxGpa) * plotH);
+                const bh = Math.max(2, (c.total_credit / maxCredit) * plotH * 0.9);
+                const by = TOP + plotH - bh;
+                const label = (c.term || '').replace(/^(\d{4})-(\d{4})-(\d+)$/, '$1-$3');
+                bars += `<rect x="${(PADL + slot * i + slot * 0.16).toFixed(1)}" y="${by.toFixed(1)}" width="${(slot * 0.68).toFixed(1)}" height="${bh.toFixed(1)}" rx="3" fill="${barColor}"></rect>`;
+                pts += `<circle cx="${cx.toFixed(1)}" cy="${yGpa.toFixed(1)}" r="4" style="fill:${lineColor}"></circle>`;
+                pts += `<text x="${cx.toFixed(1)}" y="${(yGpa - 10).toFixed(1)}" text-anchor="middle" font-size="11" style="fill:${lineColor}" font-weight="500">${c.average_gpa ? c.average_gpa.toFixed(3) : '—'}</text>`;
+                bars += `<text x="${cx.toFixed(1)}" y="${(H - 12)}" text-anchor="middle" font-size="11" style="fill:var(--text-muted)">${escapeHtml(label)}</text>`;
+                bars += `<text x="${cx.toFixed(1)}" y="${(H - 24)}" text-anchor="middle" font-size="10" style="fill:var(--text-muted)">${(c.total_credit || 0).toFixed(1)}学分</text>`;
+                if (i > 0) {
+                    const px = PADL + slot * (i - 1) + slot / 2;
+                    const py = TOP + plotH - ((cards[i - 1].average_gpa / maxGpa) * plotH);
+                    segs += `<line x1="${px.toFixed(1)}" y1="${py.toFixed(1)}" x2="${cx.toFixed(1)}" y2="${yGpa.toFixed(1)}" style="stroke:${lineColor}" stroke-width="2"></line>`;
+                }
+            });
+            return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;" role="img" aria-label="各学期平均绩点折线图">
+                    <text x="${PADL}" y="16" font-size="11" style="fill:var(--text-secondary)">学期平均绩点（点/折线） · 学期总学分（淡条）</text>
+                    ${bars}${segs}${pts}
+                </svg>`;
+        }
+        async function loadGradeAnalysis() {
+            document.getElementById('gradeContent').innerHTML = '<div class="loading">加载中...</div>';
+            const data = await apiFetch(API_BASE + '/user/grades/analysis');
+            if (!data || data.code !== 0) { document.getElementById('gradeContent').innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(data?.message||'暂无数据')}</p>`; return; }
+            const d = data.data || {};
+            const chrono = analysisChrono(d.semesters);
+            const cur = chrono.length ? chrono[chrono.length - 1] : null;
+            const prev = chrono.length > 1 ? chrono[chrono.length - 2] : null;
+            const overall = d.overall_gpa || {};
+            const tr = d.trend_analysis || {};
+            const fmt = x => (x == null || isNaN(x)) ? '—' : Number(x).toFixed(2);
+            const card = (label, val, sub, subColor) =>
+                `<div style="background:var(--stat-bg);border-radius:10px;padding:12px 14px;min-width:0;">
+                    <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">${escapeHtml(label)}</div>
+                    <div style="font-size:22px;font-weight:600;color:var(--text);line-height:1.1;font-variant-numeric:tabular-nums;">${escapeHtml(val)}</div>
+                    ${sub ? `<div style="font-size:12px;margin-top:5px;color:${subColor||'var(--text-secondary)'};">${sub}</div>` : ''}
+                </div>`;
+            let html = '<h3 style="margin-bottom:14px;"><svg class="ic"><use href="#i-trend"/></svg>成绩分析 <span style="font-size:12px;color:var(--text-muted);font-weight:400;">（个人成绩变化 · 有成绩的全部 ' + (chrono.length||0) + ' 学期）</span></h3>';
+            if (chrono.length === 0) {
+                html += '<p style="color:var(--text-muted);text-align:center;padding:20px;">暂无分析数据</p>';
+                document.getElementById('gradeContent').innerHTML = html;
+                return;
+            }
+            // 趋势方向与颜色
+            let trendTxt = tr.gpa_trend || '—', trendCol = 'var(--text-secondary)', trendIcon = '';
+            if (trendTxt === '上升') { trendCol = 'var(--leaf)'; trendIcon = '▲ '; }
+            else if (trendTxt === '下降') { trendCol = 'var(--sc-f)'; trendIcon = '▼ '; }
+            else if (trendTxt === '稳定') { trendCol = 'var(--text-secondary)'; trendIcon = '▬ '; }
+            // 1. 顶部指标卡（4）
+            const shortTerm = t => escapeHtml(String(t || '').replace(/^(\d{4})-(\d{4})-(\d+)$/, '$1-$3'));
+            let subCur = '', curColor = 'var(--text-secondary)';
+            if (cur && prev) {
+                const delta = (cur.average_gpa || 0) - (prev.average_gpa || 0);
+                if (Math.abs(delta) < 0.005) subCur = '较上期持平';
+                else if (delta > 0) { subCur = '较上期 ▲ +' + delta.toFixed(2); curColor = 'var(--leaf)'; }
+                else { subCur = '较上期 ▼ ' + delta.toFixed(2); curColor = 'var(--sc-f)'; }
+            }
+            const bestTermGpa = Number(tr.best_term_gpa || 0).toFixed(2);
+            const trendSub = (tr.best_term ? '最佳 ' + shortTerm(tr.best_term) + ' (' + bestTermGpa + ')' : '') +
+                (tr.worst_term ? (tr.best_term ? ' · ' : '') + '最低 ' + shortTerm(tr.worst_term) + ' (' + Number(tr.worst_term_gpa || 0).toFixed(2) + ')' : '');
+            html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;">';
+            html += card('累计GPA', cur ? fmt((overall.averageGPA != null ? overall.averageGPA : (cur.average_gpa || 0))) : '—', '学分加权', 'var(--text-secondary)');
+            html += card('累计平均分', fmt(overall.averageScore != null ? overall.averageScore : (cur.average_score || 0)), '满分100', 'var(--text-secondary)');
+            html += card('最新学期GPA', cur ? (cur.average_gpa ? cur.average_gpa.toFixed(3) : '—') : '—', subCur, curColor);
+            html += card('趋势方向', trendIcon + escapeHtml(trendTxt), trendSub || '&nbsp;', trendCol);
+            html += '</div>';
+            // 2. 人话总结（复用后端趋势分析）
+            let summary = [];
+            if (trendTxt && trendTxt !== '—' && trendTxt !== '暂无数据' && trendTxt !== '数据不足') summary.push('总体趋势' + trendIcon + trendTxt);
+            if (tr.best_term) summary.push('最佳为 ' + shortTerm(tr.best_term) + '（GPA ' + bestTermGpa + '）');
+            if (tr.worst_term) summary.push('需留意 ' + shortTerm(tr.worst_term) + '（GPA ' + Number(tr.worst_term_gpa || 0).toFixed(2) + '）');
+            if (summary.length) html += `<div style="background:var(--accent-soft);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);margin-bottom:14px;line-height:1.6;"><svg class="ic" style="width:15px;height:15px;vertical-align:-2px;"><use href="#i-trend"/></svg> 趋势小结：${summary.join('；')}。</div>`;
+            // 3. 折线图（学期GPA + 学分负载）
+            html += drawGpaTrend(chrono);
+            // 4. 明细表（含 较上期变化 列）
+            html += '<div style="overflow-x:auto;margin-top:8px;"><table><thead><tr><th>学期</th><th>平均绩点</th><th>较上期</th><th>平均分</th><th>总学分</th><th>课程数</th></tr></thead><tbody>';
+            chrono.forEach((s, i) => {
+                const p = i > 0 ? chrono[i - 1] : null;
+                let dTxt = '—', dCol = 'var(--text-secondary)';
+                if (p) {
+                    const dd = (s.average_gpa || 0) - (p.average_gpa || 0);
+                    if (Math.abs(dd) < 0.005) dTxt = '持平';
+                    else if (dd > 0) { dTxt = '▲ +' + dd.toFixed(2); dCol = 'var(--leaf)'; }
+                    else { dTxt = '▼ ' + dd.toFixed(2); dCol = 'var(--sc-f)'; }
+                }
+                html += `<tr><td>${escapeHtml(s.term||'-')}</td><td style="font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;">${(s.average_gpa||0).toFixed(3)}</td><td style="color:${dCol};font-weight:500;font-variant-numeric:tabular-nums;">${dTxt}</td><td style="font-variant-numeric:tabular-nums;">${(s.average_score||0).toFixed(1)}</td><td style="font-variant-numeric:tabular-nums;">${(s.total_credit||0).toFixed(1)}</td><td>${escapeHtml('' + (s.course_count||0))}</td></tr>`;
+            });
+            html += '</tbody></table></div>';
+            html += '<div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.6;">口径说明：覆盖该账号在教务系统中已有成绩的全部 ' + (chrono.length||0) + ' 个学期；累计GPA为学分加权。若某学期成绩缺失，请先在成绩页刷新对账。</div>';
+            document.getElementById('gradeContent').innerHTML = html;
+        }
+
+        // ========== 课表（XSS 防护） ==========
+        async function loadCourses() {
+            // 刷新用户信息，确保 is_bind 是最新状态
+            await refreshCurrentUser();
+            if (currentUser && !currentUser.is_bind) {
+                document.getElementById('courseContent').innerHTML = '<div style="text-align:center;padding:40px 20px;"><p style="color:var(--text-muted);margin-bottom:12px;">您还未绑定教务系统</p><p style="color:var(--text-muted);font-size:13px;">请前往「用户信息」页面绑定学号后查询课表</p></div>';
+                return;
+            }
+            const term = document.getElementById('courseTerm').value || currentTerm;
+            document.getElementById('courseContent').innerHTML = '<div class="loading">加载课程表...</div>';
+            const data = await apiFetch(API_BASE + `/user/courses?week=${currentWeek}&term=${encodeURIComponent(term)}`);
+            if (!data || data.code !== 0) { document.getElementById('courseContent').innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(data?.message||'暂无课程数据')}</p>`; }
+            else { renderCourses(data.data, term); }
+            document.getElementById('weekDisplay').textContent = `第 ${currentWeek} 周`;
+        }
+
+        function renderCourses(data, term) {
+            const days = ['周一','周二','周三','周四','周五','周六','周日'];
+            let html = '<div class="course-grid">';
+            days.forEach(d => { html += `<div class="course-header">${escapeHtml(d)}</div>`; });
+            const byDay = {};
+            (data.days || []).forEach(day => { const wd = day.weekday || 1; if (!byDay[wd]) byDay[wd] = []; (day.courses || []).forEach(c => byDay[wd].push(c)); });
+            for (let wd = 1; wd <= 7; wd++) {
+                let cell = '';
+                (byDay[wd] || []).forEach(c => {
+                    const period = c.start_period && c.end_period ? `${c.start_period}-${c.end_period}节` : '';
+                    cell += `<div class="course-item"><div class="name">${escapeHtml(c.name||'')}</div><div class="detail">${escapeHtml(period)} ${escapeHtml(c.classroom||'')}</div><div class="detail">${escapeHtml(c.teacher||'')}</div></div>`;
+                });
+                html += `<div class="course-cell">${cell}</div>`;
+            }
+            html += '</div>';
+            document.getElementById('courseContent').innerHTML = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;"><svg class="ic"><use href="#i-mappin"/></svg> ${escapeHtml(data.term||term)} ${data.weekno ? `- 第${escapeHtml('' + data.weekno)}周` : ''}</div>${html}`;
+        }
+
+        function changeWeek(delta) { currentWeek += delta; if (currentWeek < 1) currentWeek = 1; if (currentWeek > 20) currentWeek = 20; loadCourses(); }
+
+        // ========== 考试（XSS 防护） ==========
+        async function loadExams() {
+            // 刷新用户信息，确保 is_bind 是最新状态
+            await refreshCurrentUser();
+            if (currentUser && !currentUser.is_bind) {
+                document.getElementById('examContent').innerHTML = '<div style="text-align:center;padding:40px 20px;"><p style="color:var(--text-muted);margin-bottom:12px;">您还未绑定教务系统</p><p style="color:var(--text-muted);font-size:13px;">请前往「用户信息」页面绑定学号后查询考试安排</p></div>';
+                return;
+            }
+            const term = document.getElementById('examTerm').value || currentTerm;
+            document.getElementById('examContent').innerHTML = '<div class="loading">加载中...</div>';
+            const data = await apiFetch(API_BASE + `/user/exams?term=${encodeURIComponent(term)}`);
+            if (!data || data.code !== 0) { document.getElementById('examContent').innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(data?.message||'暂无考试数据')}</p>`; return; }
+            const exams = data.data ? (Array.isArray(data.data) ? data.data : (data.data.exams || [])) : [];
+            if (exams.length === 0) { document.getElementById('examContent').innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">该学期暂无考试安排</p>'; return; }
+            let html = '<table><thead><tr><th>课程名称</th><th>考试时间</th><th>考试地点</th><th>座位号</th><th>考试形式</th></tr></thead><tbody>';
+            exams.forEach(e => { html += `<tr><td><strong>${escapeHtml(e.class_name||e.name||'-')}</strong></td><td>${escapeHtml(e.time||'-')}</td><td>${escapeHtml(e.place||'-')}</td><td>${escapeHtml(e.seat_no||e.execution||'-')}</td><td>${escapeHtml(e.exam_type||e.execution||'-')}</td></tr>`; });
+            html += '</tbody></table>';
+            document.getElementById('examContent').innerHTML = html;
+        }
+
+        function updateBindAlert() {
+            const isBind = currentUser && currentUser.is_bind;
+            const ba = document.getElementById('bindAlert');
+            if (ba) { if (!isBind) ba.classList.remove('hidden'); else ba.classList.add('hidden'); }
+        }
+
+        async function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => {
+                const text = t.textContent.trim();
+                if ((tab === 'info' && text.includes('信息')) ||
+                    (tab === 'grades' && text.includes('成绩')) ||
+                    (tab === 'courses' && text.includes('课表')) ||
+                    (tab === 'exams' && text.includes('考试'))) {
+                    t.classList.add('active');
+                }
+            });
+            const map = { 'info': 'tabInfo', 'grades': 'tabGrades', 'courses': 'tabCourses', 'exams': 'tabExams' };
+            const el = document.getElementById(map[tab]);
+            if (el) el.classList.add('active');
+            updateBindAlert();
+            if (tab === 'grades') loadGrades();
+            if (tab === 'courses') loadCourses();
+            if (tab === 'exams') loadExams();
+            if (tab === 'info') { await refreshCurrentUser(); loadSyncStatus(); renderUserInfo(); }
+        }
+
+        function showMsg(id, text, type) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = text;
+            el.className = 'message ' + type;
+            if (el._hideTimer) clearTimeout(el._hideTimer);
+            el._hideTimer = setTimeout(() => { el.className = 'message'; }, 4000);
+        }
+        function showMsgHtml(id, html, type) { const el = document.getElementById(id); if (el) { el.innerHTML = html; el.className = 'message ' + type; } }
+        function showGlobalMsg(text, type) { const el = document.getElementById('message'); el.textContent = text; el.className = 'message ' + type; setTimeout(() => { el.className = 'message'; }, 3000); }
+
+        function initWeekSlider() {
+            const slider = document.getElementById('weekSlider');
+            if (slider) slider.value = currentWeek;
+        }
+
+        function onWeekSliderChange(value) {
+            currentWeek = parseInt(value);
+            document.getElementById('weekDisplay').textContent = `第 ${currentWeek} 周`;
+            loadCourses();
+        }
+
+        function showWeekPicker() {
+            const overlay = document.getElementById('weekPickerOverlay');
+            const grid = document.getElementById('weekPickerGrid');
+            let html = '';
+            for (let w = 1; w <= 20; w++) {
+                html += `<div class="week-picker-item ${w === currentWeek ? 'active' : ''}" onclick="selectWeek(${w})">第${w}周</div>`;
+            }
+            grid.innerHTML = html;
+            overlay.classList.add('show');
+        }
+
+        function hideWeekPicker(e) {
+            if (e && e.target !== document.getElementById('weekPickerOverlay')) return;
+            document.getElementById('weekPickerOverlay').classList.remove('show');
+        }
+
+        function selectWeek(week) {
+            currentWeek = week;
+            document.getElementById('weekPickerOverlay').classList.remove('show');
+            document.getElementById('weekDisplay').textContent = `第 ${week} 周`;
+            const slider = document.getElementById('weekSlider');
+            if (slider) slider.value = week;
+            loadCourses();
+        }
+
+        // ===== 密码显示/隐藏切换 =====
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.pwd-toggle');
+            if (!btn) return;
+            const input = document.getElementById(btn.getAttribute('data-target'));
+            if (!input) return;
+            if (input.type === 'password') { input.type = 'text'; btn.innerHTML = '<svg class="ic"><use href="#i-eyeoff"/></svg>'; }
+            else { input.type = 'password'; btn.innerHTML = '<svg class="ic"><use href="#i-eyeoff"/></svg>'; }
+        });
+
+        (function init() { if (token) loadApp(); })();
+    </script>
+</body>
+</html>
