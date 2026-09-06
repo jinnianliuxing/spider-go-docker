@@ -66,6 +66,7 @@ jwc:
     evaluation_redirect_url: "https://cas.csuft.edu.cn/cas/login?service=https%3A%2F%2Fjxzlpt.csuft.edu.cn%3A443%2Fcas%2FtoUrl%3Ftype%3Dpc"
     evaluation_info_url: "https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjtask"
     evaluation_do_login_url: "https://jxzlpt.csuft.edu.cn/api/manage/cas/doLogin"
+    evaluation_api_base_url: "https://jxzlpt.csuft.edu.cn/api/xspj/xspj"
 
   webvpn:
     login_url: "https://https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn/cas/login?service=https://webvpn.csuft.edu.cn/callback/cas/eAF0IG5N"
@@ -75,9 +76,12 @@ jwc:
     grade_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/kscj/cjcx_list"
     grade_level_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/kscj/djkscj_list?type=listData"
     exam_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/xsks/xsksap_list"
-    evaluation_redirect_url: "https://cas.csuft.edu.cn/cas/login?service=https%3A%2F%2Fjxzlpt.csuft.edu.cn%3A443%2Fcas%2FtoUrl%3Ftype%3Dpc"
-    evaluation_info_url: "https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjtask"
-    evaluation_do_login_url: "https://jxzlpt.csuft.edu.cn/api/manage/cas/doLogin"
+    # 教评系统走 webvpn 网关: 入口是 https-jxzlpt-csuft-edu-cn-443 域下的 /cas/toUrl?type=pc,
+    # 由 webvpn 自动把 CAS 登录跳转到 https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn。
+    evaluation_redirect_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/cas/toUrl?type=pc"
+    evaluation_info_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/api/xspj/xspj/getXspjtask"
+    evaluation_do_login_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/api/manage/cas/doLogin"
+    evaluation_api_base_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/api/xspj/xspj"
 
   rsa_url: "https://https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn/cas/jwt/publicKey"
   mfa_detect_url: "https://https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn/cas/mfa/detect"
