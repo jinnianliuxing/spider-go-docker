@@ -59,6 +59,10 @@ type JwcModeConfig struct {
 	EvaluationRedirectURL string `yaml:"evaluation_redirect_url" mapstructure:"evaluation_redirect_url"`
 	EvaluationInfoURL     string `yaml:"evaluation_info_url" mapstructure:"evaluation_info_url"`
 	EvaluationDoLoginURL  string `yaml:"evaluation_do_login_url" mapstructure:"evaluation_do_login_url"`
+	// EvaluationAPIBaseURL 教评业务接口基础地址(不含结尾斜杠)，例如 https://<host>/api/xspj/xspj
+	// 业务接口(getXspjtask / getXspjStudentCourses / getXspjTindexSystem / saveStudentComment / getevaluateResultId)
+	// 统一由此拼接，webvpn 模式下必须指向 webvpn 网关域名，否则校外服务器直连不可达。
+	EvaluationAPIBaseURL string `yaml:"evaluation_api_base_url" mapstructure:"evaluation_api_base_url"`
 }
 
 // GetCurrentModeConfig 获取当前模式的配置

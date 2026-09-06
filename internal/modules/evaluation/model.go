@@ -59,6 +59,8 @@ type EvaluationTaskResponse struct {
 // EvaluationCourse 待评教课程
 type EvaluationCourse struct {
 	Id            int    `json:"id"`
+	PjjgId        int    `json:"pjjgid"`   // 评教结果ID，提交时作为 tevaluateResultid；也是 getevaluateResultId 的入参
+	PjjgTime      string `json:"pjjgtime"` // 评教提交时间（已评课程才有）
 	CourseName    string `json:"coursename"`
 	TeacherName   string `json:"teachername"`
 	JobNumber     string `json:"jobnumber"`
@@ -105,21 +107,24 @@ type EvaluationQuestionsResponse struct {
 
 // EvaluationSubmitRequest 提交评教请求
 type EvaluationSubmitRequest struct {
-	TaskId         int                `json:"taskid"`
-	ClassNo        string             `json:"classno"`
-	CourseCode     string             `json:"coursecode"`
-	CourseName     string             `json:"coursename"`
-	JobNumber      string             `json:"jobnumber"`
-	StudentId      string             `json:"studentid"`
-	StudentName    string             `json:"studentname"`
-	TeacherName    string             `json:"teachername"`
-	YearTerm       int                `json:"yearterm"`
-	TotalScore     int                `json:"totalscore"`
-	PjCourseType   string             `json:"pjcoursetype"`
-	CourseOrgCode  string             `json:"courseorgcode"`
-	CourseOrgName  string             `json:"courseorgname"`
-	EvaluateResult []EvaluationAnswer `json:"evaluateResult"`
-	CommitTime     string             `json:"commit_time"`
+	TaskId        int    `json:"taskid"`
+	ClassNo       string `json:"classno"`
+	CourseCode    string `json:"coursecode"`
+	CourseName    string `json:"coursename"`
+	JobNumber     string `json:"jobnumber"`
+	StudentId     string `json:"studentid"`
+	StudentName   string `json:"studentname"`
+	TeacherName   string `json:"teachername"`
+	YearTerm      int    `json:"yearterm"`
+	TotalScore    int    `json:"totalscore"`
+	PjCourseType  string `json:"pjcoursetype"`
+	CourseOrgCode string `json:"courseorgcode"`
+	CourseOrgName string `json:"courseorgname"`
+	// TEvaluateResultId 评教结果ID(取自课程的 pjjgid)。
+	// 提交前必须先调用 getevaluateResultId?id=<pjjgid> 取得答案模板，否则服务端无法关联结果记录。
+	TEvaluateResultId int                `json:"tevaluateResultid,omitempty"`
+	EvaluateResult    []EvaluationAnswer `json:"evaluateResult"`
+	CommitTime        string             `json:"commit_time"`
 }
 
 // EvaluationAnswer 评教答案
@@ -128,9 +133,33 @@ type EvaluationAnswer struct {
 	Sfbt       string `json:"sfbt"`        // 是否必填
 	Yjzb       string `json:"yjzb"`        // 一级指标
 	IndexType  string `json:"index_type"`  // 题目类型
-	IndexScore string `json:"index_score"` // 得分(打分题)
-	IndexTitle string `json:"index_title"` // 答案文本
-	IndexId    int    `json:"indexid"`     // 题目ID
+	// IndexScore 打分题是字符串形式的分数(如 "10")，问答题是数字 0，故用 interface{} 以还原真实报文。
+	IndexScore interface{} `json:"index_score"`
+	// IndexTitle 打分题为分数文本，问答题为评价内容；非必填问答题为 null，故用指针。
+	IndexTitle *string `json:"index_title"`
+	IndexId    int     `json:"indexid"`      // 题目ID
+	Id         int     `json:"id,omitempty"` // 答案记录ID(来自 getevaluateResultId)，用于更新已有答案
+}
+
+// EvaluationResultItem getevaluateResultId 返回的预置答案项
+type EvaluationResultItem struct {
+	Id         int     `json:"id"`          // 答案记录ID
+	IndexId    int     `json:"indexid"`     // 题目ID
+	Score      float64 `json:"score"`       // 该题满分
+	IndexScore float64 `json:"index_score"` // 已填得分
+	IndexTitle *string `json:"index_title"` // 已填内容
+	IndexOrder string  `json:"index_order"` // 题目顺序(字符串)
+	OptionId   int     `json:"option_id"`
+	Title      string  `json:"title"` // 题目文本
+}
+
+// EvaluationResultResponse getevaluateResultId 响应
+type EvaluationResultResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    struct {
+		PageData []EvaluationResultItem `json:"pageData"`
+	} `json:"data"`
 }
 
 // EvaluationSubmitResponse 提交评教响应

@@ -68,6 +68,7 @@ jwc:
     evaluation_redirect_url: "https://cas.csuft.edu.cn/cas/login?service=https%3A%2F%2Fjxzlpt.csuft.edu.cn%3A443%2Fcas%2FtoUrl%3Ftype%3Dpc"
     evaluation_info_url: "https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjtask"
     evaluation_do_login_url: "https://jxzlpt.csuft.edu.cn/api/manage/cas/doLogin"
+    evaluation_api_base_url: "https://jxzlpt.csuft.edu.cn/api/xspj/xspj"
 
   # WebVPN 配置
   webvpn:
@@ -79,9 +80,11 @@ jwc:
     grade_level_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/kscj/djkscj_list?type=listData"
     exam_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/xsks/xsksap_list"
     # 教评系统配置（WebVPN 模式下也需要访问教评平台）
-    evaluation_redirect_url: "https://cas.csuft.edu.cn/cas/login?service=https%3A%2F%2Fjxzlpt.csuft.edu.cn%3A443%2Fcas%2FtoUrl%3Ftype%3Dpc"
-    evaluation_info_url: "https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjtask"
-    evaluation_do_login_url: "https://jxzlpt.csuft.edu.cn/api/manage/cas/doLogin"
+    # 入口是 https-jxzlpt-csuft-edu-cn-443 域下的 /cas/toUrl?type=pc，由 webvpn 自动跳转 CAS。
+    evaluation_redirect_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/cas/toUrl?type=pc"
+    evaluation_info_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/api/xspj/xspj/getXspjtask"
+    evaluation_do_login_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/api/manage/cas/doLogin"
+    evaluation_api_base_url: "https://https-jxzlpt-csuft-edu-cn-443.webvpn.csuft.edu.cn/api/xspj/xspj"
 
   # WebVPN Token URL（仅 webvpn 模式使用，用于交换 webvpn-token cookie）
   webvpn_token_url: "https://webvpn.csuft.edu.cn/api/access/auth/finish"

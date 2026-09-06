@@ -23,6 +23,7 @@ func NewModule(
 	evaluationInfoURL string,
 	casRedirectURL string,
 	doLoginURL string,
+	apiBaseURL string,
 ) *Module {
 	// 初始化服务
 	svc := NewService(
@@ -33,6 +34,7 @@ func NewModule(
 		evaluationInfoURL,
 		casRedirectURL,
 		doLoginURL,
+		apiBaseURL,
 	)
 
 	// 初始化处理器

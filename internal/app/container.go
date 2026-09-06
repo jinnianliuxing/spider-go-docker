@@ -314,6 +314,7 @@ func (c *Container) initModules() {
 		currentMode.EvaluationInfoURL,
 		currentMode.EvaluationRedirectURL,
 		currentMode.EvaluationDoLoginURL,
+		currentMode.EvaluationAPIBaseURL,
 	)
 
 	// Notice Module（通知模块）

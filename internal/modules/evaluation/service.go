@@ -13,6 +13,7 @@ import (
 	"spider-go/internal/service"
 	"spider-go/internal/shared"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,8 @@ type Service interface {
 	GetEvaluationTasks(ctx context.Context, uid int) (*[]EvaluationTask, error)
 	GetEvaluationCourses(ctx context.Context, uid int, taskId int) (*[]EvaluationCourse, error)
 	GetEvaluationQuestions(ctx context.Context, uid int, indexId, pjCourseType string) (*[]EvaluationQuestion, error)
+	// GetEvaluateResultId 取某门课的评教结果记录(含每题答案记录 id)，提交评教前必须调用
+	GetEvaluateResultId(ctx context.Context, uid int, pjjgId int) (*[]EvaluationResultItem, error)
 	SubmitEvaluation(ctx context.Context, uid int, submitData []EvaluationSubmitRequest) error
 	// 自动评教接口
 	AutoEvaluation(ctx context.Context, uid int) (*AutoEvaluationResult, error)
@@ -39,8 +42,13 @@ type evaluationService struct {
 	evaluationInfoURL string
 	casRedirectURL    string // 教评系统 CAS 回调 URL（用于获取 ticket）
 	doLoginURL        string // 教评系统 doLogin API
+	apiBaseURL        string // 教评业务接口基础地址，如 https://<host>/api/xspj/xspj
 	timeout           time.Duration
 	cacheExpire       time.Duration
+	// clients 缓存每个用户「登录教评系统时用的那个 http.Client」。
+	// 必须复用它：webvpn 模式下业务接口依赖该 client cookie jar 里的 webvpn-token，
+	// 新建裸 client 会因缺少该 cookie 被网关拦截。
+	clients sync.Map // uid -> *http.Client
 }
 
 func NewService(
@@ -51,6 +59,7 @@ func NewService(
 	evaluationInfoURL string,
 	casRedirectURL string,
 	doLoginURL string,
+	apiBaseURL string,
 ) Service {
 	return &evaluationService{
 		userQuery:         userQuery,
@@ -60,6 +69,7 @@ func NewService(
 		evaluationInfoURL: evaluationInfoURL,
 		casRedirectURL:    casRedirectURL,
 		doLoginURL:        doLoginURL,
+		apiBaseURL:        strings.TrimRight(apiBaseURL, "/"),
 		timeout:           30 * time.Second,
 		cacheExpire:       30 * time.Minute, // 教评 accessToken 缓存 30 分钟
 	}
@@ -71,13 +81,13 @@ func (s *evaluationService) GetEvaluationInfo(ctx context.Context, uid int) (*[]
 		return nil, common.NewAppError(common.CodeInternalError, "查询数据库错误")
 	}
 
-	accessToken, err := s.getAccessTokenOrLogin(ctx, uid, user.Sid, user.Spwd)
+	accessToken, client, err := s.getSession(ctx, uid, user.Sid, user.Spwd)
 	if err != nil {
 		return nil, err
 	}
 
 	// 使用 accessToken 请求教评信息
-	body, err := s.fetchWithAccessToken(ctx, "POST", s.evaluationInfoURL, accessToken, nil)
+	body, err := s.fetchWithAccessToken(ctx, client, "POST", s.evaluationInfoURL, accessToken, nil)
 	if err != nil {
 		return nil, common.NewAppError(common.CodeJwcRequestFailed, "发送教评请求失败")
 	}
@@ -186,27 +196,77 @@ func (s *evaluationService) followRedirectsAndGetToken(ctx context.Context, clie
 		return common.NewAppError(common.CodeJwcLoginFailed, "未能获取 userToken")
 	}
 
-	// 7. 调用 doLogin 获取 accessToken
-	doLoginFullURL := fmt.Sprintf("%s?userToken=%s", s.doLoginURL, url.QueryEscape(userToken))
-
-	req, err := http.NewRequest("POST", doLoginFullURL, nil)
+	// 7. 调用 doLogin 换取 accessToken
+	accessToken, err := s.doLoginWithToken(ctx, client, userToken)
 	if err != nil {
-		return common.NewAppError(common.CodeJwcLoginFailed, "构造 doLogin 请求失败")
+		return err
+	}
+
+	// 8. 缓存 accessToken
+	if err := s.evaluationCache.SetAccessToken(ctx, uid, accessToken, s.cacheExpire); err != nil {
+		return common.NewAppError(common.CodeCacheError, "缓存 accessToken 失败")
+	}
+
+	// 9. 保存登录态 client：后续业务接口必须复用它，
+	//    否则 webvpn 模式下会因缺少 webvpn-token cookie 被网关拦截。
+	s.clients.Store(uid, client)
+
+	// 10. 成功获取 accessToken 后，立即删除 TGC（一次性使用）
+	_ = s.sessionCache.DeleteTGC(ctx, uid)
+
+	return nil
+}
+
+// doLoginWithToken 调用 doLogin 换取 accessToken。
+// userToken 是 base64，可能包含 '+'：标准 url 编码会得到 %2B，
+// 而浏览器抓包显示实际发出的是 %20（把 '+' 当空格处理）。
+// 这里两种编码都尝试一次，避免服务端解析口径差异导致登录失败。
+func (s *evaluationService) doLoginWithToken(ctx context.Context, client *http.Client, userToken string) (string, error) {
+	standard := url.QueryEscape(userToken)                                      // + -> %2B
+	browserLike := strings.ReplaceAll(url.QueryEscape(userToken), "%2B", "%20") // + -> %20（与浏览器一致）
+
+	var lastErr error
+	for _, encoded := range []string{standard, browserLike} {
+		token, err := s.requestDoLogin(ctx, client, encoded)
+		if err == nil && token != "" {
+			return token, nil
+		}
+		if err != nil {
+			lastErr = err
+		}
+	}
+
+	if lastErr != nil {
+		return "", lastErr
+	}
+	return "", common.NewAppError(common.CodeJwcLoginFailed, "未获取到 accessToken")
+}
+
+// requestDoLogin 发起一次 doLogin 请求并解析 accessToken
+func (s *evaluationService) requestDoLogin(ctx context.Context, client *http.Client, encodedToken string) (string, error) {
+	doLoginFullURL := fmt.Sprintf("%s?userToken=%s", s.doLoginURL, encodedToken)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", doLoginFullURL, nil)
+	if err != nil {
+		return "", common.NewAppError(common.CodeJwcLoginFailed, "构造 doLogin 请求失败")
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	req.Header.Set("Accept", "application/json, text/plain, */*")
-	req.Header.Set("Origin", "https://jxzlpt.csuft.edu.cn")
+	// Origin/Referer 必须与实际访问的域名一致（webvpn 模式下不是 jxzlpt.csuft.edu.cn）
+	if origin := originOf(s.doLoginURL); origin != "" {
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Referer", origin+"/")
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return common.NewAppError(common.CodeJwcLoginFailed, "doLogin 请求失败")
+		return "", common.NewAppError(common.CodeJwcLoginFailed, "doLogin 请求失败")
 	}
 	defer resp.Body.Close()
 
-	// 解析响应获取 accessToken
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return common.NewAppError(common.CodeJwcParseFailed, "读取 doLogin 响应失败")
+		return "", common.NewAppError(common.CodeJwcParseFailed, "读取 doLogin 响应失败")
 	}
 
 	var loginResp struct {
@@ -218,51 +278,56 @@ func (s *evaluationService) followRedirectsAndGetToken(ctx context.Context, clie
 	}
 
 	if err := json.Unmarshal(bodyBytes, &loginResp); err != nil {
-		return common.NewAppError(common.CodeJwcParseFailed, fmt.Sprintf("解析 doLogin 响应失败: %v", err))
+		return "", common.NewAppError(common.CodeJwcParseFailed, fmt.Sprintf("解析 doLogin 响应失败: %v", err))
 	}
 
-	if loginResp.Data.AccessToken == "" {
-		return common.NewAppError(common.CodeJwcLoginFailed, "未获取到 accessToken")
-	}
-	// 8. 缓存 accessToken
-	if err := s.evaluationCache.SetAccessToken(ctx, uid, loginResp.Data.AccessToken, s.cacheExpire); err != nil {
-		return common.NewAppError(common.CodeCacheError, "缓存 accessToken 失败")
-	}
-
-	// 9. 成功获取 accessToken 后，立即删除 TGC（一次性使用）
-	_ = s.sessionCache.DeleteTGC(ctx, uid)
-
-	return nil
+	return loginResp.Data.AccessToken, nil
 }
 
-// getAccessTokenOrLogin 获取缓存的 accessToken 或登录
-func (s *evaluationService) getAccessTokenOrLogin(ctx context.Context, uid int, sid, spwd string) (string, error) {
-	// 先尝试从缓存中获取 accessToken
-	accessToken, err := s.evaluationCache.GetAccessToken(ctx, uid)
-	if err != nil {
-		return "", common.NewAppError(common.CodeCacheError, "缓存错误")
+// originOf 从完整 URL 中提取 scheme://host，用于构造 Origin/Referer 头
+func originOf(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
+}
+
+// getSession 获取教评会话：accessToken + 登录教评系统时使用的 http.Client。
+//
+// 两者必须同源：accessToken 缓存在 redis（可跨进程重启存活），但携带 webvpn-token
+// cookie 的 client 只在进程内存里。若只剩 token 而没有 client，业务请求会被 webvpn
+// 网关拦截返回空/未授权，因此这种情况必须重新走一次完整登录。
+func (s *evaluationService) getSession(ctx context.Context, uid int, sid, spwd string) (string, *http.Client, error) {
+	if v, ok := s.clients.Load(uid); ok {
+		accessToken, err := s.evaluationCache.GetAccessToken(ctx, uid)
+		if err == nil && accessToken != "" {
+			return accessToken, v.(*http.Client), nil
+		}
 	}
 
-	if accessToken != "" {
-		return accessToken, nil
-	}
-
-	// 如果没有缓存，则登录教评系统
+	// 没有可用会话（首次访问 / token 过期 / 进程重启后 client 丢失），重新登录教评系统
 	if err := s.LoginAndCacheEvaluation(ctx, uid, sid, spwd); err != nil {
-		return "", err
+		return "", nil, err
 	}
 
-	// 重新获取 accessToken
-	accessToken, err = s.evaluationCache.GetAccessToken(ctx, uid)
+	v, ok := s.clients.Load(uid)
+	if !ok {
+		return "", nil, common.NewAppError(common.CodeJwcLoginFailed, "获取教评系统会话失败")
+	}
+
+	accessToken, err := s.evaluationCache.GetAccessToken(ctx, uid)
 	if err != nil || accessToken == "" {
-		return "", common.NewAppError(common.CodeJwcLoginFailed, "获取教评系统会话失败")
+		return "", nil, common.NewAppError(common.CodeJwcLoginFailed, "获取教评系统会话失败")
 	}
 
-	return accessToken, nil
+	return accessToken, v.(*http.Client), nil
 }
 
-// fetchWithAccessToken 使用 accessToken 发起请求
-func (s *evaluationService) fetchWithAccessToken(ctx context.Context, method, targetURL string, accessToken string, formData url.Values) (io.ReadCloser, error) {
+// fetchWithAccessToken 使用 accessToken 发起请求。
+// client 应传入登录教评系统时使用的那个实例（其 cookie jar 里有 webvpn-token，
+// 网关靠它路由请求）；传 nil 时退化成新建裸 client（仅适用于校园网直连模式）。
+func (s *evaluationService) fetchWithAccessToken(ctx context.Context, client *http.Client, method, targetURL string, accessToken string, formData url.Values) (io.ReadCloser, error) {
 	var body io.Reader
 	if formData != nil {
 		body = strings.NewReader(formData.Encode())
@@ -281,8 +346,8 @@ func (s *evaluationService) fetchWithAccessToken(ctx context.Context, method, ta
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 
-	client := &http.Client{
-		Timeout: s.timeout,
+	if client == nil {
+		client = &http.Client{Timeout: s.timeout}
 	}
 
 	resp, err := client.Do(req)
@@ -308,14 +373,14 @@ func (s *evaluationService) GetEvaluationTasks(ctx context.Context, uid int) (*[
 		return nil, common.NewAppError(common.CodeInternalError, "查询数据库错误")
 	}
 
-	accessToken, err := s.getAccessTokenOrLogin(ctx, uid, user.Sid, user.Spwd)
+	accessToken, client, err := s.getSession(ctx, uid, user.Sid, user.Spwd)
 	if err != nil {
 		return nil, err
 	}
 
 	// 请求教评任务列表
-	taskURL := "https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjtask"
-	body, err := s.fetchWithAccessToken(ctx, "POST", taskURL, accessToken, nil)
+	taskURL := s.apiBaseURL + "/getXspjtask"
+	body, err := s.fetchWithAccessToken(ctx, client, "POST", taskURL, accessToken, nil)
 	if err != nil {
 		return nil, common.NewAppError(common.CodeJwcRequestFailed, "获取教评任务失败")
 	}
@@ -345,14 +410,14 @@ func (s *evaluationService) GetEvaluationCourses(ctx context.Context, uid int, t
 		return nil, common.NewAppError(common.CodeInternalError, "查询数据库错误")
 	}
 
-	accessToken, err := s.getAccessTokenOrLogin(ctx, uid, user.Sid, user.Spwd)
+	accessToken, client, err := s.getSession(ctx, uid, user.Sid, user.Spwd)
 	if err != nil {
 		return nil, err
 	}
 
 	// 请求评教课程列表
-	courseURL := fmt.Sprintf("https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjStudentCourses?taskid=%d", taskId)
-	body, err := s.fetchWithAccessToken(ctx, "POST", courseURL, accessToken, nil)
+	courseURL := fmt.Sprintf("%s/getXspjStudentCourses?taskid=%d", s.apiBaseURL, taskId)
+	body, err := s.fetchWithAccessToken(ctx, client, "POST", courseURL, accessToken, nil)
 	if err != nil {
 		return nil, common.NewAppError(common.CodeJwcRequestFailed, "获取评教课程失败")
 	}
@@ -382,15 +447,15 @@ func (s *evaluationService) GetEvaluationQuestions(ctx context.Context, uid int,
 		return nil, common.NewAppError(common.CodeInternalError, "查询数据库错误")
 	}
 
-	accessToken, err := s.getAccessTokenOrLogin(ctx, uid, user.Sid, user.Spwd)
+	accessToken, client, err := s.getSession(ctx, uid, user.Sid, user.Spwd)
 	if err != nil {
 		return nil, err
 	}
 
 	// 请求评教题目
-	questionURL := fmt.Sprintf("https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjTindexSystem?indexid=%s&pjcoursetype=%s",
-		indexId, url.QueryEscape(pjCourseType))
-	body, err := s.fetchWithAccessToken(ctx, "POST", questionURL, accessToken, nil)
+	questionURL := fmt.Sprintf("%s/getXspjTindexSystem?indexid=%s&pjcoursetype=%s",
+		s.apiBaseURL, indexId, url.QueryEscape(pjCourseType))
+	body, err := s.fetchWithAccessToken(ctx, client, "POST", questionURL, accessToken, nil)
 	if err != nil {
 		return nil, common.NewAppError(common.CodeJwcRequestFailed, "获取评教题目失败")
 	}
@@ -413,6 +478,45 @@ func (s *evaluationService) GetEvaluationQuestions(ctx context.Context, uid int,
 	return &questionResp.Data.PageData, nil
 }
 
+// GetEvaluateResultId 获取某门课的评教结果记录（含每道题的答案记录 ID）。
+// 真实流程：进入评教页面时先调 getevaluateResultId?id=<课程.pjjgid> 取回一条已初始化的
+// 结果记录，提交时把它作为 tevaluateResultid 回传、每条答案带上各自的 id，
+// 服务端据此更新已有记录；缺少这步提交会被拒绝或产生脏数据。
+func (s *evaluationService) GetEvaluateResultId(ctx context.Context, uid int, pjjgId int) (*[]EvaluationResultItem, error) {
+	user, err := s.userQuery.GetUserByUid(ctx, uid)
+	if err != nil {
+		return nil, common.NewAppError(common.CodeInternalError, "查询数据库错误")
+	}
+
+	accessToken, client, err := s.getSession(ctx, uid, user.Sid, user.Spwd)
+	if err != nil {
+		return nil, err
+	}
+
+	resultURL := fmt.Sprintf("%s/getevaluateResultId?id=%d", s.apiBaseURL, pjjgId)
+	body, err := s.fetchWithAccessToken(ctx, client, "POST", resultURL, accessToken, nil)
+	if err != nil {
+		return nil, common.NewAppError(common.CodeJwcRequestFailed, "获取评教结果记录失败")
+	}
+	defer body.Close()
+
+	bodyBytes, err := io.ReadAll(body)
+	if err != nil {
+		return nil, common.NewAppError(common.CodeJwcParseFailed, "读取响应失败")
+	}
+
+	var resultResp EvaluationResultResponse
+	if err := json.Unmarshal(bodyBytes, &resultResp); err != nil {
+		return nil, common.NewAppError(common.CodeJwcParseFailed, "解析评教结果记录响应失败")
+	}
+
+	if resultResp.Code != 200 {
+		return nil, common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教评系统返回错误: %s", resultResp.Message))
+	}
+
+	return &resultResp.Data.PageData, nil
+}
+
 // SubmitEvaluation 提交评教
 func (s *evaluationService) SubmitEvaluation(ctx context.Context, uid int, submitData []EvaluationSubmitRequest) error {
 	user, err := s.userQuery.GetUserByUid(ctx, uid)
@@ -420,7 +524,7 @@ func (s *evaluationService) SubmitEvaluation(ctx context.Context, uid int, submi
 		return common.NewAppError(common.CodeInternalError, "查询数据库错误")
 	}
 
-	accessToken, err := s.getAccessTokenOrLogin(ctx, uid, user.Sid, user.Spwd)
+	accessToken, client, err := s.getSession(ctx, uid, user.Sid, user.Spwd)
 	if err != nil {
 		return err
 	}
@@ -432,7 +536,7 @@ func (s *evaluationService) SubmitEvaluation(ctx context.Context, uid int, submi
 	}
 
 	// 构造请求
-	submitURL := "https://jxzlpt.csuft.edu.cn/api/xspj/xspj/saveStudentComment"
+	submitURL := s.apiBaseURL + "/saveStudentComment"
 	req, err := http.NewRequestWithContext(ctx, "POST", submitURL, strings.NewReader(string(jsonData)))
 	if err != nil {
 		return common.NewAppError(common.CodeHttpRequestFailed, "创建请求失败")
@@ -443,9 +547,13 @@ func (s *evaluationService) SubmitEvaluation(ctx context.Context, uid int, submi
 	req.Header.Set("Accept", "application/json, text/plain, */*")
 	req.Header.Set("Authorization", "Bearer"+accessToken)
 	req.Header.Set("Content-Type", "application/json;charset=UTF-8")
+	if origin := originOf(s.apiBaseURL); origin != "" {
+		req.Header.Set("Origin", origin)
+		req.Header.Set("Referer", origin+"/")
+	}
 
-	client := &http.Client{
-		Timeout: s.timeout,
+	if client == nil {
+		client = &http.Client{Timeout: s.timeout}
 	}
 
 	resp, err := client.Do(req)
@@ -484,7 +592,7 @@ func (s *evaluationService) AutoEvaluation(ctx context.Context, uid int) (*AutoE
 	}
 
 	// 确保已登录教评系统
-	_, err = s.getAccessTokenOrLogin(ctx, uid, user.Sid, user.Spwd)
+	_, _, err = s.getSession(ctx, uid, user.Sid, user.Spwd)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +654,22 @@ func (s *evaluationService) AutoEvaluation(ctx context.Context, uid int) (*AutoE
 				continue
 			}
 
-			// 6. 自动生成答案 - 先给所有题满分，然后随机选一题减1分
+			// 6. 取该课程的评教结果记录：提交时必须回传 tevaluateResultid 以及每条答案的 id，
+			//    否则服务端无法把答案关联到已初始化的结果记录上。
+			answerIds := make(map[int]int, len(*questions)) // indexid -> 答案记录 id
+			if course.PjjgId > 0 {
+				items, err := s.GetEvaluateResultId(ctx, uid, course.PjjgId)
+				if err != nil {
+					result.FailedCourses++
+					result.FailedList = append(result.FailedList, fmt.Sprintf("%s-%s(获取评教结果记录失败)", course.CourseName, course.TeacherName))
+					continue
+				}
+				for _, it := range *items {
+					answerIds[it.IndexId] = it.Id
+				}
+			}
+
+			// 7. 自动生成答案 - 先给所有题满分，然后随机选一题减1分
 			evaluateResult := make([]EvaluationAnswer, 0, len(*questions))
 			totalScore := 0
 			scoreQuestionIndices := make([]int, 0) // 记录打分题的索引
@@ -559,24 +682,24 @@ func (s *evaluationService) AutoEvaluation(ctx context.Context, uid int) (*AutoE
 					Yjzb:       q.FirstLevlIndex,
 					IndexType:  q.Type,
 					IndexId:    q.IndexId,
+					Id:         answerIds[q.IndexId],
 				}
 
 				// 根据题目类型填充答案
 				if q.Type == "打分题" && q.IsScored == "是" {
-					// 打分题给满分
+					// 打分题给满分（index_score 与 index_title 都是字符串形式的分数）
 					scoreStr := fmt.Sprintf("%.0f", q.Score)
 					answer.IndexScore = scoreStr
-					answer.IndexTitle = scoreStr
+					answer.IndexTitle = &scoreStr
 					totalScore += int(q.Score)
 					scoreQuestionIndices = append(scoreQuestionIndices, i) // 记录打分题索引
 				} else if q.Type == "问答题" {
-					// 问答题可以为空或给默认好评
-					answer.IndexScore = "0"
+					// 问答题：index_score 是数字 0；非必填时 index_title 需为 null
+					answer.IndexScore = 0
 					if q.IsEmptyed == "否" {
 						// 必填问答题给默认好评
-						answer.IndexTitle = "老师授课认真负责，教学效果好"
-					} else {
-						answer.IndexTitle = ""
+						comment := "老师授课认真负责，教学效果好"
+						answer.IndexTitle = &comment
 					}
 				}
 
@@ -584,6 +707,7 @@ func (s *evaluationService) AutoEvaluation(ctx context.Context, uid int) (*AutoE
 			}
 
 			// 第二遍：随机选择一道打分题减1分
+			// （教务任务里 sfqxzdzgf=是 即"限制最高分"，全满分容易被判异常，故刻意留 1 分）
 			if len(scoreQuestionIndices) > 0 {
 				// 随机选择一道打分题
 				randomIndex := scoreQuestionIndices[rand.Intn(len(scoreQuestionIndices))]
@@ -596,34 +720,35 @@ func (s *evaluationService) AutoEvaluation(ctx context.Context, uid int) (*AutoE
 				}
 				scoreStr := fmt.Sprintf("%.0f", score99)
 				evaluateResult[randomIndex].IndexScore = scoreStr
-				evaluateResult[randomIndex].IndexTitle = scoreStr
+				evaluateResult[randomIndex].IndexTitle = &scoreStr
 
 				// 调整总分
 				totalScore = totalScore - int(q.Score) + int(score99)
 			}
 
-			// 7. 构造提交数据
+			// 8. 构造提交数据
 			submitData := []EvaluationSubmitRequest{
 				{
-					TaskId:         task.TaskId,
-					ClassNo:        course.ClassNo,
-					CourseCode:     course.CourseCode,
-					CourseName:     course.CourseName,
-					JobNumber:      course.JobNumber,
-					StudentId:      course.StudentId,
-					StudentName:    course.StudentName,
-					TeacherName:    course.TeacherName,
-					YearTerm:       course.YearTerm,
-					TotalScore:     totalScore,
-					PjCourseType:   course.PjCourseType,
-					CourseOrgCode:  course.CourseOrgCode,
-					CourseOrgName:  course.CourseOrgName,
-					EvaluateResult: evaluateResult,
-					CommitTime:     time.Now().Format("2006-01-02 15:04:05"),
+					TaskId:            task.TaskId,
+					ClassNo:           course.ClassNo,
+					CourseCode:        course.CourseCode,
+					CourseName:        course.CourseName,
+					JobNumber:         course.JobNumber,
+					StudentId:         course.StudentId,
+					StudentName:       course.StudentName,
+					TeacherName:       course.TeacherName,
+					YearTerm:          course.YearTerm,
+					TotalScore:        totalScore,
+					PjCourseType:      course.PjCourseType,
+					CourseOrgCode:     course.CourseOrgCode,
+					CourseOrgName:     course.CourseOrgName,
+					TEvaluateResultId: course.PjjgId,
+					EvaluateResult:    evaluateResult,
+					CommitTime:        time.Now().Format("2006-01-02 15:04:05"),
 				},
 			}
 
-			// 8. 提交评教
+			// 9. 提交评教
 			err = s.SubmitEvaluation(ctx, uid, submitData)
 			if err != nil {
 				result.FailedCourses++
@@ -659,7 +784,7 @@ func (s *evaluationService) GetEvaluationStatus(ctx context.Context, uid int) (*
 	}
 
 	// 确保已登录教评系统
-	_, err = s.getAccessTokenOrLogin(ctx, uid, user.Sid, user.Spwd)
+	_, _, err = s.getSession(ctx, uid, user.Sid, user.Spwd)
 	if err != nil {
 		return nil, err
 	}
