@@ -648,6 +648,7 @@
         <symbol id="i-trophy" viewBox="0 0 24 24" data-page-node-id="nX8ap5Ku2B4gbGDJTGAB3x"><path d="M8 21h8M12 17v4" data-page-node-id="gQOYuHho3cdlBNp7FcESDQ"/><path d="M7 4h10v6a5 5 0 01-10 0V4z" data-page-node-id="X1tjnTydt09Dd7J36rJqGG"/><path d="M7 6H4a2 2 0 000 4h3M17 6h3a2 2 0 010 4h-3" data-page-node-id="oSJw0SdlWj6YEHzXwAxaTl"/></symbol>
         <symbol id="i-trend" viewBox="0 0 24 24" data-page-node-id="5xWT5kNTviQRFb5MCPAg5A"><path d="M22 7l-8.5 8.5-5-5L2 17" data-page-node-id="I4alsPc9RcsozaXRfWLGEG"/><path d="M16 7h6v6" data-page-node-id="9u4yGZSB4AGlvrhyflqhYz"/></symbol>
         <symbol id="i-mappin" viewBox="0 0 24 24" data-page-node-id="uRBFZp0pe1YIztIy2G8ybO"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" data-page-node-id="pGaWGqLaGdOAO9wNbWgUGx"/><circle cx="12" cy="10" r="3" data-page-node-id="snH5hAu2V9crMhVQ0v7CzL"/></symbol>
+        <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z"/></symbol>
         <symbol id="i-top" viewBox="0 0 24 24" data-page-node-id="RSr9VCnGLtEGE82OErBxcF"><circle cx="12" cy="12" r="9.5" data-page-node-id="r7xAaMoSfVVpjmT67HbjdL"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5" data-page-node-id="L70H3ht8bxHV0zD9qGtZyH"/></symbol>
     </svg>
     <div class="header" data-page-node-id="fVGrGbgTrj7w9nX5HVMQ9u">
@@ -685,7 +686,7 @@
                         <label data-page-node-id="NtuGRcDSICGO5X9APLexEA">密码</label>
                         <div class="pwd-wrapper" data-page-node-id="W8xTc3OIMRDiFKiuuMWRNF"><input type="password" id="loginPassword" placeholder="请输入密码" onkeydown="if(event.key==='Enter')login()" data-page-node-id="Kw6dp8NFoVRSjnTY3aefMS"><button type="button" class="pwd-toggle" data-target="loginPassword" tabindex="-1" data-page-node-id="4S49Z5K94TyQCym5LdeIxk"><svg class="ic" data-page-node-id="VX5LTFNEujrb7C0PZ4IPeI"><use href="#i-eye" data-page-node-id="cEM6GyiTduj9Fb8rGeim5X"/></svg></button></div>
                     </div>
-                    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="login()" data-page-node-id="mA08hCIXOEElllN0mfQTvg">登 录</button>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;" id="btnLoginPwd" onclick="login()" data-page-node-id="mA08hCIXOEElllN0mfQTvg">登 录</button>
                 </div>
                 <div id="loginMethodCaptcha" class="hidden" data-page-node-id="o1o3KSoF1AFDvi3DbJJFUO">
                     <div class="form-group" data-page-node-id="C1bb7gYjOksyuquGs76YeB">
@@ -699,7 +700,7 @@
                             <button class="btn btn-sm btn-outline" id="btnLoginSendCaptcha" onclick="sendLoginCaptcha()" style="white-space:nowrap;" data-page-node-id="9A1aQmpFab1UIQbhEWtF05">发送</button>
                         </div>
                     </div>
-                    <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="loginByCaptcha()" data-page-node-id="2mJmHLRb7jG1Dr2I9Kwx4m">登 录</button>
+                    <button class="btn btn-primary" style="width:100%;padding:12px;" id="btnLoginCaptcha" onclick="loginByCaptcha()" data-page-node-id="2mJmHLRb7jG1Dr2I9Kwx4m">登 录</button>
                 </div>
                 <div id="loginMethodMagicLink" class="hidden" data-page-node-id="HuuAjSo48AjNkK3As5BFle">
                     <div class="form-group" data-page-node-id="7vbiBDdafZPBW2MYGrBFX5">
@@ -776,6 +777,7 @@
                 <div class="tab" onclick="switchTab('grades')" data-page-node-id="aRdFuka8jekz1ldHGV7VaJ"><svg class="ic" data-page-node-id="FBKGNA25qO59FlBKn4sFfr"><use href="#i-chart" data-page-node-id="0QJohfmFVytHAMzcQf750k"/></svg>成绩</div>
                 <div class="tab" onclick="switchTab('courses')" data-page-node-id="MGamOh1igQZEUBmyHm11UG"><svg class="ic" data-page-node-id="GHomIhgHTcfBpegvKl99QA"><use href="#i-cal" data-page-node-id="B2HCEpdTWWL2EhMTcHr4Xb"/></svg>课表</div>
                 <div class="tab" onclick="switchTab('exams')" data-page-node-id="pJsiruSOxXEhLz35V72LcO"><svg class="ic" data-page-node-id="F5RONoqFHcCHCQm3CoABXp"><use href="#i-file" data-page-node-id="VOI6cvfm6N4wMD9oG1iqKX"/></svg>考试</div>
+                <div class="tab" onclick="switchTab('evaluation')"><svg class="ic"><use href="#i-star"/></svg>教学评价</div>
             </div>
             <div id="tabInfo" class="tab-content active" data-page-node-id="pkZB4aDI0U1HtAeV1Tg9cY">
               <div class="info-grid" data-page-node-id="iDAQIARARqdruxCW2EWOXZ">
@@ -866,6 +868,22 @@
                         </div>
                     </div>
                     <div id="examContent" data-page-node-id="kFcJHvIMRbpWEYPqteTYin"></div>
+                </div>
+            </div>
+
+            <div id="tabEvaluation" class="tab-content">
+                <div class="card">
+                    <div class="card-toolbar" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+                        <h2 style="border:none;padding:0;margin:0;"><svg class="ic"><use href="#i-star"/></svg>教学评价</h2>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <select id="evalTask" onchange="loadEvalCourses()" style="padding:6px 10px;border:1px solid var(--input-border);border-radius:6px;font-size:13px;background:var(--input-bg);color:var(--text);"><option value="">加载中...</option></select>
+                            <button class="btn btn-sm btn-primary" onclick="loadEvaluation()">刷新</button>
+                            <button class="btn btn-sm btn-danger" id="btnAutoEval" onclick="autoEvaluate()">一键评教</button>
+                        </div>
+                    </div>
+                    <div id="evalMessage" class="message" style="margin-bottom:12px;"></div>
+                    <div id="evalContent"><div style="text-align:center;padding:40px 20px;color:var(--text-muted);">点击上方下拉框选择评教任务</div></div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:10px;line-height:1.6;">说明：一键评教会自动完成所有「未评」课程——打分题随机一题少给 1 分、其余满分，必填问答题填默认好评；已评课程自动跳过。评教通过 WebVPN 访问教务评教平台，课程较多时耗时较长，请耐心等待。</div>
                 </div>
             </div>
         </div>
@@ -1007,12 +1025,17 @@
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             if (!email || !password) { showMsg('loginMessage', '请填写邮箱和密码', 'error'); return; }
+            const btn = document.getElementById('btnLoginPwd');
+            const oldText = btn.textContent;
+            btn.disabled = true; btn.textContent = '登录中...';
+            showMsg('loginMessage', '正在登录，请稍候…', 'info');
             try {
                 const res = await fetch(API_BASE + '/user/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
                 const data = await res.json();
                 if (data.code === 0) { token = data.data.token; currentUser = data.data.user; localStorage.setItem('token', token); showMsg('loginMessage', '登录成功', 'success'); setTimeout(() => loadApp(), 300); }
                 else { showMsg('loginMessage', data.message || '登录失败', 'error'); }
             } catch(e) { showMsg('loginMessage', '网络错误', 'error'); }
+            finally { btn.disabled = false; btn.textContent = oldText; }
         }
 
         async function sendLoginCaptcha() {
@@ -1035,12 +1058,17 @@
             const email = document.getElementById('loginCaptchaEmail').value;
             const captcha = document.getElementById('loginCaptcha').value;
             if (!email || !captcha) { showMsg('loginMessage', '请填写邮箱和验证码', 'error'); return; }
+            const btn = document.getElementById('btnLoginCaptcha');
+            const oldText = btn.textContent;
+            btn.disabled = true; btn.textContent = '登录中...';
+            showMsg('loginMessage', '正在登录，请稍候…', 'info');
             try {
                 const res = await fetch(API_BASE + '/user/login/captcha', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, captcha }) });
                 const data = await res.json();
                 if (data.code === 0) { token = data.data.token; currentUser = data.data.user; localStorage.setItem('token', token); showMsg('loginMessage', '登录成功', 'success'); setTimeout(() => loadApp(), 300); }
                 else { showMsg('loginMessage', data.message || '登录失败', 'error'); }
             } catch(e) { showMsg('loginMessage', '网络错误', 'error'); }
+            finally { btn.disabled = false; btn.textContent = oldText; }
         }
 
         async function resetPassword() {
@@ -1764,6 +1792,99 @@
             document.getElementById('examContent').innerHTML = html;
         }
 
+        // ========== 教学评价 ==========
+        async function loadEvaluation() {
+            await refreshCurrentUser();
+            if (currentUser && !currentUser.is_bind) {
+                document.getElementById('evalContent').innerHTML = '<div style="text-align:center;padding:40px 20px;"><p style="color:var(--text-muted);margin-bottom:12px;">您还未绑定教务系统</p><p style="color:var(--text-muted);font-size:13px;">请前往「用户信息」页面绑定学号后使用教学评价</p></div>';
+                return;
+            }
+            const content = document.getElementById('evalContent');
+            content.innerHTML = '<div class="loading">加载评教任务...</div>';
+            const tdata = await apiFetch(API_BASE + '/user/evaluation/tasks');
+            if (!tdata || tdata.code !== 0) {
+                content.innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(tdata?.message || '获取评教任务失败')}</p>`;
+                return;
+            }
+            const tasks = tdata.data || [];
+            if (!tasks.length) { content.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">当前没有可用的评教任务</p>'; return; }
+            const sel = document.getElementById('evalTask');
+            sel.innerHTML = tasks.map(t => `<option value="${t.taskid}">${escapeHtml(t.taskname || ('任务' + t.taskid))}（${escapeHtml(t.currentStatus || '')}）</option>`).join('');
+            const ongoing = tasks.find(t => t.currentStatus === '进行中');
+            if (ongoing) sel.value = ongoing.taskid;
+            await loadEvalCourses();
+        }
+
+        async function loadEvalCourses() {
+            const taskId = document.getElementById('evalTask').value;
+            if (!taskId) return;
+            const content = document.getElementById('evalContent');
+            content.innerHTML = '<div class="loading">加载课程列表...</div>';
+            const data = await apiFetch(API_BASE + `/user/evaluation/courses?taskid=${taskId}`);
+            if (!data || data.code !== 0) {
+                content.innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(data?.message || '获取课程列表失败')}</p>`;
+                return;
+            }
+            const courses = data.data || [];
+            if (!courses.length) { content.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">该任务下暂无课程</p>'; return; }
+            const done = courses.filter(c => c.hassubmit === 1).length;
+            let html = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">共 ${courses.length} 门课程，已评 <strong style="color:var(--leaf);">${done}</strong> 门，未评 <strong style="color:var(--sc-f);">${courses.length - done}</strong> 门</div>`;
+            html += '<table><thead><tr><th>课程名称</th><th>教师</th><th>课程类型</th><th>状态</th><th>评教时间</th></tr></thead><tbody>';
+            courses.forEach(c => {
+                const submitted = c.hassubmit === 1;
+                const badge = submitted
+                    ? '<span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;background:rgba(46,160,67,.15);color:var(--leaf);font-weight:600;">已评</span>'
+                    : '<span style="display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;background:rgba(229,88,62,.15);color:var(--sc-f);font-weight:600;">未评</span>';
+                html += `<tr><td><strong>${escapeHtml(c.coursename || '-')}</strong></td><td>${escapeHtml(c.teachername || '-')}</td><td>${escapeHtml(c.pjcoursetype || '-')}</td><td>${badge}</td><td>${escapeHtml(c.pjjgtime || '-')}</td></tr>`;
+            });
+            html += '</tbody></table>';
+            content.innerHTML = html;
+        }
+
+        const EVAL_BTN_TEXT = '一键评教';
+        let evalArmed = false;
+        let evalArmTimer = null;
+        function resetEvalBtn() {
+            evalArmed = false;
+            if (evalArmTimer) { clearTimeout(evalArmTimer); evalArmTimer = null; }
+            const b = document.getElementById('btnAutoEval');
+            if (b) { b.disabled = false; b.textContent = EVAL_BTN_TEXT; }
+        }
+        async function autoEvaluate() {
+            const btn = document.getElementById('btnAutoEval');
+            if (!evalArmed) {
+                evalArmed = true;
+                btn.textContent = '再点一次确认执行';
+                showMsg('evalMessage', '一键评教将自动完成所有「未评」课程（随机一题少给 1 分、必填问答填默认好评），已评课程自动跳过。确认请再次点击按钮。', 'info');
+                evalArmTimer = setTimeout(resetEvalBtn, 6000);
+                return;
+            }
+            if (evalArmTimer) clearTimeout(evalArmTimer);
+            evalArmed = false;
+            btn.disabled = true;
+            btn.textContent = '评教执行中...';
+            showMsg('evalMessage', '正在自动评教，请勿关闭页面...', 'info');
+            try {
+                const res = await apiFetch(API_BASE + '/user/evaluation/auto', { method: 'POST' });
+                if (!res || res.code !== 0) {
+                    showMsg('evalMessage', res?.message || '自动评教失败', 'error');
+                } else {
+                    const r = res.data || {};
+                    const lines = [];
+                    lines.push(`完成：成功 ${r.success_courses || 0} 门，失败 ${r.failed_courses || 0} 门，跳过(已评) ${r.skipped_courses || 0} 门`);
+                    if ((r.success_list || []).length) lines.push('成功：' + r.success_list.join('、'));
+                    if ((r.failed_list || []).length) lines.push('失败：' + r.failed_list.join('、'));
+                    if (r.message) lines.push(escapeHtml(r.message));
+                    showMsgHtml('evalMessage', lines.map(l => escapeHtml(l)).join('<br>'), (r.failed_courses || 0) > 0 ? 'error' : 'success');
+                    await loadEvalCourses();
+                }
+            } catch (e) {
+                showMsg('evalMessage', '自动评教请求异常：' + e.message, 'error');
+            } finally {
+                resetEvalBtn();
+            }
+        }
+
         function updateBindAlert() {
             const isBind = currentUser && currentUser.is_bind;
             const ba = document.getElementById('bindAlert');
@@ -1778,17 +1899,19 @@
                 if ((tab === 'info' && text.includes('信息')) ||
                     (tab === 'grades' && text.includes('成绩')) ||
                     (tab === 'courses' && text.includes('课表')) ||
-                    (tab === 'exams' && text.includes('考试'))) {
+                    (tab === 'exams' && text.includes('考试')) ||
+                    (tab === 'evaluation' && text.includes('评价'))) {
                     t.classList.add('active');
                 }
             });
-            const map = { 'info': 'tabInfo', 'grades': 'tabGrades', 'courses': 'tabCourses', 'exams': 'tabExams' };
+            const map = { 'info': 'tabInfo', 'grades': 'tabGrades', 'courses': 'tabCourses', 'exams': 'tabExams', 'evaluation': 'tabEvaluation' };
             const el = document.getElementById(map[tab]);
             if (el) el.classList.add('active');
             updateBindAlert();
             if (tab === 'grades') loadGrades();
             if (tab === 'courses') loadCourses();
             if (tab === 'exams') loadExams();
+            if (tab === 'evaluation') loadEvaluation();
             if (tab === 'info') { await refreshCurrentUser(); loadSyncStatus(); renderUserInfo(); }
         }
 

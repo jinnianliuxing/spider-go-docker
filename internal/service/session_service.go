@@ -672,14 +672,17 @@ func (s *jwcSessionService) LoginAndGetClient(ctx context.Context, username, pas
 	if err != nil {
 		return nil, common.NewAppError(common.CodeInternalError, "生成设备指纹失败")
 	}
-	needMFA, _, err := s.detectMFA(ctx, client, username, password, fpVisitorId)
+	needMFA, mfaState, err := s.detectMFA(ctx, client, username, password, fpVisitorId)
 	if err != nil {
 		return nil, err
 	}
 	if needMFA {
 		return nil, common.NewAppError(common.CodeJwcMFARequired, "需要多因素认证，请前往i中南林APP进行验证")
 	}
-	form := url.Values{"username": {username}, "password": {encryptedPwd}, "execution": {execution}, "fpVisitorId": {fpVisitorId}, "rememberMe": {"on"}, "_eventId": {"submit"}, "failN": {"0"}, "submit1": {"login1"}}
+	// 表单字段必须与 loginAndCacheOnceByWebVPN/LoginCheck 保持一致：
+	// CAS 已启用 MFA 校验(mfaEnabled=true)，缺少 mfaState/captcha/currentMenu 等字段
+	// 会被 CAS 拒绝并返回登录页，被误报为"用户名或密码错误"。
+	form := url.Values{"username": {username}, "password": {encryptedPwd}, "captcha": {""}, "currentMenu": {"1"}, "failN": {"0"}, "mfaState": {mfaState}, "execution": {execution}, "_eventId": {"submit"}, "geolocation": {""}, "fpVisitorId": {fpVisitorId}, "trustAgent": {""}, "submit1": {"Login1"}}
 	req, err := http.NewRequest("POST", s.loginURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, common.NewAppError(common.CodeJwcLoginFailed, "构造登录请求失败")

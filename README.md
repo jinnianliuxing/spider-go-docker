@@ -22,6 +22,7 @@ CSUFT Educational Administration Crawler & Management Platform
 - [数据库表结构](#数据库表结构)
 - [安全说明](#安全说明)
 - [常见问题](#常见问题)
+- [更新日志](#更新日志)
 
 ---
 
@@ -523,6 +524,23 @@ docker-compose restart nginx
 ### Q: 数据库迁移（已有数据如何升级）？
 
 GORM `AutoMigrate` 只会新增/修改字段，不会删除已有数据或表。升级到新版本后重启容器即可。如需执行自定义 SQL 迁移，请在 `internal/app/db.go` 的 `InitDBWithConfig` 函数中添加。
+
+---
+
+## 更新日志
+
+### 2026-09-06
+
+**教评模块修复与前端接入**
+
+- 🔧 教评 API 地址改为配置驱动（`evaluation_api_base_url`，默认走 WebVPN 网关域名），不再硬编码
+- 🔧 修复教评登录：CAS 登录表单补齐 `mfaState` 等字段，修复此前误报「用户名或密码错误」的问题
+- 🔧 补齐 `getevaluateResultId` 步骤，提交评教回填 `tevaluateResultid` 与每题答案 `id`，与教务真实接口对齐
+- ✨ 前端新增「教学评价」标签页：评教任务 / 课程状态列表，支持一键自动评教（打分题随机一题少给 1 分，必填问答填默认好评）
+- ✨ 一键评教采用「两次点击确认」，兼容内嵌浏览器等禁用弹窗的环境；登录按钮增加「登录中...」状态
+- 📝 GPA 显示优化：无绩点数据时按 `(成绩-60)÷10+1` 公式在前端自动换算
+
+**升级方式**：拉取代码后 `docker-compose up -d --build`（或导入预构建镜像后 `docker compose up -d`），数据库自动迁移，无需手工操作。
 
 ---
 
