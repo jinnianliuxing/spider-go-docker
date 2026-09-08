@@ -120,12 +120,12 @@ func (s *examService) GetAllExams(ctx context.Context, uid int, term string) ([]
 
 	// 判断错误类型：登录失败/认证错误不降级，直接返回错误
 	if s.isAuthenticationError(err) {
-		log.Printf("[GetAllExams] 认证错误，清除绑定信息：uid=%d, err=%v", uid, err)
-		// 清除用户的教务系统绑定
-		if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-			log.Printf("[GetAllExams] 清除绑定信息失败：uid=%d, err=%v", uid, clearErr)
+		// 保留绑定（学号），仅清除失效会话缓存，便于前端弹出重新绑定弹窗
+		log.Printf("[GetAllExams] 认证错误，标记绑定失效（保留学号）：uid=%d, err=%v", uid, err)
+		if invErr := s.sessionService.InvalidateSession(ctx, uid); invErr != nil {
+			log.Printf("[GetAllExams] 清除会话缓存失败：uid=%d, err=%v", uid, invErr)
 		}
-		return nil, err
+		return nil, common.NewAppError(common.CodeJwcBindExpired, common.MsgJwcBindExpired)
 	}
 
 	// 超时或网络错误，尝试从数据库获取
@@ -182,6 +182,13 @@ func (s *examService) fetchExamsFromJwc(ctx context.Context, uid int, sid, spwd,
 		form.Set("pageSize", strconv.Itoa(pageSize))
 
 		exams, total, isJSON, err := s.fetchExamsPage(ctx, cookies, form)
+		if err != nil {
+			// 会话失效：清掉过期 cookie，下次请求会用库里的密码重新登录
+			if appErr, ok := err.(*common.AppError); ok && appErr.Code == common.CodeJwcBindExpired {
+				_ = s.sessionService.InvalidateSession(ctx, uid)
+			}
+			return nil, err
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -286,6 +293,8 @@ func (s *examService) isAuthenticationError(err error) bool {
 		switch appErr.Code {
 		case common.CodeJwcLoginFailed,
 			common.CodeJwcNotBound,
+			common.CodeJwcSessionExpired,
+			common.CodeJwcBindExpired,
 			common.CodeUnauthorized:
 			return true
 		}
@@ -297,6 +306,7 @@ func (s *examService) isAuthenticationError(err error) bool {
 		"密码错误",
 		"账号被锁",
 		"认证失败",
+		"登录状态已失效",
 	}
 	for _, keyword := range authKeywords {
 		if strings.Contains(errMsg, keyword) {
@@ -331,7 +341,8 @@ func (s *examService) getCookiesOrLogin(ctx context.Context, uid int, sid, spwd 
 	}
 
 	if err := s.sessionService.LoginAndCache(ctx, uid, sid, spwd); err != nil {
-		return nil, err
+		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
+		return nil, common.ToBindExpired(err)
 	}
 
 	cookies, err = s.sessionService.GetCachedCookies(ctx, uid)
@@ -351,6 +362,10 @@ func (s *examService) parseExamArrangementFromHTML(r io.Reader) ([]ExamArrangeme
 
 	title := strings.TrimSpace(doc.Find("title").Text())
 	if title != "我的考试 - 考试安排查询" {
+		// 会话失效被踢回登录页 → 与页面改版区分开，单独返回"绑定已失效"
+		if isSessionExpiredDoc(doc, title) {
+			return nil, common.NewAppError(common.CodeJwcBindExpired, common.MsgJwcBindExpired)
+		}
 		return nil, common.NewAppError(common.CodeJwcParseFailed, "页面错误")
 	}
 
@@ -497,4 +512,16 @@ func parseExamsJSONBytes(raw []byte) ([]ExamArrangement, int, error) {
 	}
 
 	return exams, jsonIntExam(resp.Count), nil
+}
+
+// isSessionExpiredDoc 判断响应是否因登录态失效被踢回登录页
+// （保守判定：仅在出现明确未登录信号时命中，避免把页面改版误判成绑定失效）
+func isSessionExpiredDoc(doc *goquery.Document, title string) bool {
+	if strings.Contains(title, "登录") {
+		return true
+	}
+	bodyText := doc.Find("body").Text()
+	return strings.Contains(bodyText, "用户没有登录") ||
+		strings.Contains(bodyText, "请重新登录") ||
+		strings.Contains(bodyText, "正在登录")
 }

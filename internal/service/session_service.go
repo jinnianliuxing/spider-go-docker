@@ -289,7 +289,7 @@ func (s *jwcSessionService) LoginAndCacheWithConfig(ctx context.Context, uid int
 	} else if resp.StatusCode >= 500 {
 		return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统服务器错误: %d", resp.StatusCode))
 	} else {
-		return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统返回异常状态码: %d", resp.StatusCode))
+		return statusError(resp.StatusCode)
 	}
 	casURL, _ := url.Parse(loginURL)
 	for _, cookie := range client.Jar.Cookies(casURL) {
@@ -570,7 +570,7 @@ func (s *jwcSessionService) loginAndCacheOnceByWebVPN(ctx context.Context, uid i
 			if resp.StatusCode >= 500 {
 				return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统服务器错误: %d", resp.StatusCode))
 			}
-			return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统返回异常状态码: %d", resp.StatusCode))
+			return statusError(resp.StatusCode)
 		}
 
 		// 获取 302 Location
@@ -704,7 +704,7 @@ func (s *jwcSessionService) LoginAndGetClient(ctx context.Context, username, pas
 	} else if resp.StatusCode >= 500 {
 		return nil, common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统服务器错误: %d", resp.StatusCode))
 	} else {
-		return nil, common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统返回异常状态码: %d", resp.StatusCode))
+		return nil, statusError(resp.StatusCode)
 	}
 	return client, nil
 }
@@ -768,7 +768,7 @@ func (s *jwcSessionService) LoginCheck(ctx context.Context, username, password s
 	} else if resp.StatusCode >= 500 {
 		return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统服务器错误: %d", resp.StatusCode))
 	} else {
-		return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统返回异常状态码: %d", resp.StatusCode))
+		return statusError(resp.StatusCode)
 	}
 	return nil
 }
@@ -1076,7 +1076,7 @@ func (s *jwcSessionService) CompletePhoneMFALogin(ctx context.Context, challenge
 	} else if resp.StatusCode >= 500 {
 		return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统服务器错误: %d", resp.StatusCode))
 	} else {
-		return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统返回异常状态码: %d", resp.StatusCode))
+		return statusError(resp.StatusCode)
 	}
 	for _, cookie := range session.client.Jar.Cookies(func() *url.URL { u, _ := url.Parse(session.loginURL); return u }()) {
 		if cookie.Name == "TGC" {
@@ -1104,4 +1104,17 @@ func (s *jwcSessionService) CompletePhoneMFALogin(ctx context.Context, challenge
 	delete(s.pendingMFA, challengeID)
 	s.pendingMFAMu.Unlock()
 	return nil
+}
+
+// statusError 把教务系统/教评系统返回的 HTTP 状态码转换为对应的业务错误。
+// 401 表示登录态已失效（会话过期、被踢出或凭证无效），前端据此弹出「重新输入教务密码」弹窗；
+// 其余非预期状态码按普通请求失败处理（可安全降级到数据库缓存）。
+func statusError(statusCode int) error {
+	if statusCode == 401 {
+		return common.NewAppError(common.CodeJwcSessionExpired, "教务系统登录状态已失效（401），请重新输入教务密码")
+	}
+	if statusCode >= 500 {
+		return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统服务器错误: %d", statusCode))
+	}
+	return common.NewAppError(common.CodeJwcRequestFailed, fmt.Sprintf("教务系统返回异常状态码: %d", statusCode))
 }

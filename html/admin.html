@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spider-Go 管理后台</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="alternate icon" href="/favicon.ico">
     <style>
         /* ============================================================
            Spider-Go · 值房控制台 (Duty Console identity)
@@ -790,6 +792,7 @@
             <div class="form-group">
                 <label>通知类型</label>
                 <input type="text" id="noticeType" placeholder="如 system, update" value="system">
+                <p style="margin:6px 2px 0;font-size:11px;color:#8a94a6;line-height:1.5;">💡 类型填 <b>countdown</b>：内容写到期日期（如 2027-06-15）即可发布“网站剩余运行时间”倒计时；该条公告仅更新横幅，不会显示在用户端通知列表。距到期 30 天内横幅自动出现，其余时间仅在页脚低调展示。</p>
             </div>
             <div class="form-row">
                 <div class="form-group" style="display:flex;align-items:center;gap:8px;">
@@ -1788,6 +1791,19 @@
             if (!input) return;
             if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
             else { input.type = 'password'; btn.textContent = '👁'; }
+        });
+
+        // 操作按钮统一事件委托：公告/简介的编辑与删除按钮均通过 data-action 声明动作
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            const action = btn.getAttribute('data-action');
+            const id = btn.getAttribute('data-id');
+            if (!id) return;
+            if (action === 'edit-notice') editNotice(id);
+            else if (action === 'delete-notice') deleteNotice(id);
+            else if (action === 'edit-intro') editIntro(id);
+            else if (action === 'delete-intro') deleteIntro(id);
         });
     </script>
 </body>
