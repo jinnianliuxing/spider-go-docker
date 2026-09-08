@@ -4,6 +4,8 @@
     <meta charset="UTF-8" data-page-node-id="ROwP6vXH52sIYv7ElMXzPY">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="yPVYuRjop8eqDtTwnLytr0">
     <title>Spider-Go 教务系统</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="alternate icon" href="/favicon.ico">
     <style>
         /* ============================================================
            Spider-Go · 蛛丝成绩单  (Silk-Ledger identity)
@@ -491,21 +493,47 @@
         .week-display-click { cursor: pointer; padding: 4px 10px; border-radius: 6px; transition: background-color 0.15s; font-variant-numeric: tabular-nums; }
         .week-display-click:hover { background: var(--accent-soft); }
 
-        /* ---- 服务到期横幅：斜纹警示带 ---- */
+        /* ---- 服务到期提示：优雅分级展示 ----
+           页脚常驻小字（>30 天） → 顶部柔和胶囊横幅（≤30 天） → 加深警示（≤7 天） → 到期红色斜纹 */
         #expireBanner {
             display: none;
-            text-align: center;
-            padding: 8px 16px;
+            width: fit-content;
+            margin: 12px auto 0;
+            padding: 7px 20px;
             font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.05em;
-            color: #FFF9EC;
-            background: repeating-linear-gradient(-45deg, #C77E1F 0 14px, #B06D14 14px 28px);
-            text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+            letter-spacing: 0.04em;
+            border-radius: 999px;
+            color: #7A4A00;
+            background: linear-gradient(135deg, #FFF4D6, #FFE7AE);
+            border: 1px solid #F0D48A;
+            box-shadow: 0 2px 10px rgba(199, 126, 31, 0.18);
+            font-variant-numeric: tabular-nums;
         }
         #expireBanner.show { display: block; animation: bannerIn 0.4s ease both; }
-        @keyframes bannerIn { from { opacity: 0; } to { opacity: 1; } }
-        #expireBanner.expired { background: repeating-linear-gradient(-45deg, #C03A28 0 14px, #A82E1E 14px 28px); }
+        @keyframes bannerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        #expireBanner.warn-soon {
+            color: #8A3B00;
+            background: linear-gradient(135deg, #FFE8D1, #FFCFA3);
+            border-color: #F0B27A;
+            box-shadow: 0 2px 10px rgba(192, 90, 20, 0.25);
+        }
+        #expireBanner.expired {
+            color: #FFF9EC;
+            background: repeating-linear-gradient(-45deg, #C03A28 0 14px, #A82E1E 14px 28px);
+            border-color: transparent;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.25);
+            text-align: center;
+        }
+        #expireFooter {
+            text-align: center;
+            padding: 8px 0 20px;
+            font-size: 12px;
+            letter-spacing: 0.02em;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        #expireFooter b { color: var(--text-secondary); font-weight: 600; }
 
         /* ---- 极简线性图标 ---- */
         .ic { width: 16px; height: 16px; flex: none; display: inline-block; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -973,6 +1001,8 @@
                     logout();
                     return null;
                 }
+                // 教务绑定已失效（密码变更/会话过期）→ 弹出重新输入教务密码的弹窗
+                if (data.code === 40013) { showRebindOverlay(); }
                 return data;
             } catch(e) {
                 showGlobalMsg('网络错误', 'error');
@@ -1118,27 +1148,54 @@
             }
         }
 
-        // 服务器到期倒计时
-        // 到期时间：2027-06-15 00:00:00（可修改此行更新）
-        function startExpireCountdown() {
-            const EXPIRE_DATE = new Date('2027-06-15T00:00:00').getTime();
+        // ========== 服务到期倒计时（优雅分级展示） ==========
+        // 默认到期时间：2027-06-15 00:00:00
+        // 支持通过管理端公告动态发布：新建/编辑通知时“通知类型”填 countdown，
+        // 内容中包含日期（如 2027-06-15 或 2027年6月15日）即可，该条公告不会显示在系统通知列表，
+        // 前端会自动以其日期接管倒计时展示。删除该公告则回退到默认时间。
+        const DEFAULT_EXPIRE = new Date('2027-06-15T00:00:00').getTime();
+        let expireTs = DEFAULT_EXPIRE;
+
+        function parseExpireDate(text) {
+            const m = (text || '').match(/(\d{4})\s*[-/年.]\s*(\d{1,2})\s*[-/月.]\s*(\d{1,2})\s*日?/);
+            if (!m) return null;
+            const ts = new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0).getTime();
+            return isNaN(ts) ? null : ts;
+        }
+
+        function startExpireCountdown(ts) {
+            if (ts) expireTs = ts;
             const el = document.getElementById('expireBanner');
-            if (!el) return;
-            el.classList.add('show');
+            const foot = document.getElementById('expireFooter');
+            if (!el || !foot) return;
+
+            const d = new Date(expireTs);
+            const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
             function update() {
-                const now = Date.now();
-                const diff = EXPIRE_DATE - now;
+                const diff = expireTs - Date.now();
                 if (diff <= 0) {
+                    foot.style.display = 'none';
                     el.textContent = '⚠️ 网站服务已到期';
-                    el.classList.add('expired');
+                    el.classList.add('show', 'expired');
+                    el.classList.remove('warn-soon');
                     return;
                 }
                 const days = Math.floor(diff / 86400000);
                 const hours = Math.floor((diff % 86400000) / 3600000);
                 const minutes = Math.floor((diff % 3600000) / 60000);
                 const seconds = Math.floor((diff % 60000) / 1000);
-                el.textContent = `⏳ 网站剩余运行时间：${days} 天 ${hours} 时 ${minutes} 分 ${seconds} 秒`;
+
+                // 页脚小字：常驻低调展示
+                foot.innerHTML = `⏳ 服务运行至 <b>${ymd}</b> · 剩余 <b>${days}</b> 天`;
+                foot.style.display = 'block';
+
+                // 顶部横幅：仅在临近到期（≤30 天）时出现，避免长期干扰
+                if (days <= 30) {
+                    el.textContent = `⏳ 网站剩余运行时间：${days} 天 ${hours} 时 ${minutes} 分 ${seconds} 秒`;
+                    el.classList.add('show');
+                    el.classList.toggle('warn-soon', days <= 7);
+                }
             }
 
             update();
@@ -1177,10 +1234,18 @@
                 const res = await fetch(API_BASE + '/notices');
                 const data = await res.json();
                 if (data.code === 0 && data.data && data.data.length > 0) {
+                    // countdown 类型公告：不显示在列表，仅用于发布“网站剩余运行时间”的到期日期
+                    const cdNotice = data.data.find(n => (n.notice_type || '').toLowerCase() === 'countdown');
+                    if (cdNotice) {
+                        const ts = parseExpireDate(cdNotice.content);
+                        if (ts) expireTs = ts;
+                    }
+                    const visible = data.data.filter(n => (n.notice_type || '').toLowerCase() !== 'countdown');
+                    if (visible.length === 0) return;
                     const el = document.getElementById('publicNotices');
                     el.style.display = 'block';
                     let html = '';
-                    data.data.forEach(n => {
+                    visible.forEach(n => {
                         const time = n.create_time ? new Date(n.create_time).toLocaleString() : '';
                         const top = n.is_top ? '<svg class="ic"><use href="#i-top"/></svg>' : '';
                         // 安全渲染：如果 is_html 标记为 true，仅允许 safe HTML 标签
@@ -1347,6 +1412,94 @@
             const input = document.getElementById('mfaCodeInput');
             if (input) setTimeout(() => input.focus(), 60);
             startMFACountdown();
+        }
+
+        // ========== 教务绑定失效：重新输入教务密码弹窗（可关闭） ==========
+        function showRebindOverlay() {
+            if (document.getElementById('rebindOverlay')) return; // 已弹出则不再重复
+            const sid = (currentUser && currentUser.sid) || '';
+            const ov = document.createElement('div');
+            ov.id = 'rebindOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,25,0.55);z-index:1250;display:flex;align-items:center;justify-content:center;padding:16px;';
+            ov.innerHTML = `
+                <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.25);width:100%;max-width:380px;padding:22px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <div style="font-size:16px;font-weight:700;color:var(--text,#1f2937);">教务绑定已失效</div>
+                        <button onclick="closeRebindOverlay()" style="border:none;background:transparent;font-size:20px;line-height:1;color:var(--text-muted,#6b7280);cursor:pointer;" aria-label="关闭">&times;</button>
+                    </div>
+                    <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:14px;line-height:1.7;">
+                        教务系统的登录状态已过期${sid ? '（或密码已变更）' : ''}，无法获取数据。
+                        ${sid ? '请输入学号 <b>' + escapeHtml(sid) + '</b> 对应的教务系统密码以更新绑定。' : '请输入教务系统密码以更新绑定。'}
+                    </div>
+                    <div class="pwd-wrapper" style="position:relative;">
+                        <input id="rebindPwdInput" type="password" placeholder="请输入教务系统密码" autocomplete="current-password"
+                            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--input-border,#d1d5db);border-radius:8px;font-size:15px;background:var(--input-bg,#fff);color:var(--text,#1f2937);"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();submitRebind();}">
+                    </div>
+                    <div id="rebindMsg" class="message" style="margin-top:10px;font-size:13px;"></div>
+                    <div style="display:flex;gap:10px;margin-top:6px;">
+                        <button class="btn btn-outline" style="flex:1;" onclick="closeRebindOverlay()">取消</button>
+                        <button class="btn btn-primary" style="flex:1.6;" id="rebindSubmitBtn" onclick="submitRebind()">更新并重试</button>
+                    </div>
+                    <div style="margin-top:12px;font-size:12px;color:var(--text-muted,#6b7280);text-align:center;line-height:1.6;">
+                        使用 i中南林 APP 的账号密码；若提示需要短信验证会自动转入验证码流程
+                    </div>
+                </div>`;
+            document.body.appendChild(ov);
+            const input = document.getElementById('rebindPwdInput');
+            if (input) setTimeout(() => input.focus(), 60);
+        }
+
+        function closeRebindOverlay() {
+            const ov = document.getElementById('rebindOverlay');
+            if (ov) ov.remove();
+        }
+
+        async function submitRebind() {
+            const input = document.getElementById('rebindPwdInput');
+            const msgEl = document.getElementById('rebindMsg');
+            const pwd = input ? input.value : '';
+            if (!pwd) {
+                if (msgEl) { msgEl.textContent = '请输入教务系统密码'; msgEl.className = 'message error'; }
+                return;
+            }
+            const sid = (currentUser && currentUser.sid) || '';
+            const btn = document.getElementById('rebindSubmitBtn');
+            if (btn) { btn.disabled = true; btn.textContent = '更新中...'; }
+            if (msgEl) { msgEl.textContent = '正在验证，请稍候…'; msgEl.className = 'message info'; }
+            try {
+                const res = await apiFetch(API_BASE + '/user/bind', { method: 'POST', body: JSON.stringify({ sid, spwd: pwd }) });
+                if (btn) { btn.disabled = false; btn.textContent = '更新并重试'; }
+                if (!res) {
+                    if (msgEl) { msgEl.textContent = '网络错误，请稍后重试'; msgEl.className = 'message error'; }
+                    return;
+                }
+                if (res.code === 0) {
+                    closeRebindOverlay();
+                    showGlobalMsg('绑定已更新，正在重新加载数据', 'success');
+                    await refreshCurrentUser();
+                    if (typeof retryCurrentTab === 'function') retryCurrentTab();
+                    return;
+                }
+                // 需要短信验证：交给已有的 MFA 流程
+                if (res.code === 40011) {
+                    closeRebindOverlay();
+                    startBindMFA(sid, pwd);
+                    return;
+                }
+                if (msgEl) { msgEl.textContent = res.message || '更新失败，请检查密码后重试'; msgEl.className = 'message error'; }
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.textContent = '更新并重试'; }
+                if (msgEl) { msgEl.textContent = '请求异常：' + e.message; msgEl.className = 'message error'; }
+            }
+        }
+
+        // 重新绑定成功后，重试当前标签页的数据加载
+        function retryCurrentTab() {
+            if (currentTab === 'grades') loadGrades();
+            else if (currentTab === 'courses') loadCourses();
+            else if (currentTab === 'exams') loadExams();
+            else if (currentTab === 'evaluation') loadEvaluation();
         }
 
         let _mfaCdTimer = null;
@@ -1841,6 +1994,7 @@
             content.innerHTML = html;
         }
 
+        let currentTab = 'info';
         const EVAL_BTN_TEXT = '一键评教';
         let evalArmed = false;
         let evalArmTimer = null;
@@ -1892,6 +2046,7 @@
         }
 
         async function switchTab(tab) {
+            currentTab = tab;
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(t => {
@@ -1974,5 +2129,6 @@
 
         (function init() { if (token) loadApp(); })();
     </script>
+    <div id="expireFooter" style="display:none;"></div>
 </body>
 </html>

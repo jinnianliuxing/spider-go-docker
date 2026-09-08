@@ -40,6 +40,8 @@ const (
 	CodeInvalidResponse    = 50011 // 响应格式错误
 	CodeNotImplemented     = 50100 // 功能未实现
 	CodeUnbindCooldown     = 40012 // 注销冷却期未到
+	CodeJwcBindExpired     = 40013 // 教务绑定已失效（会话过期或密码已变更），需重新输入教务密码
+	CodeJwcSessionExpired  = 40014 // 教务会话已失效（HTTP 401：登录态过期/被踢出），需重新登录
 
 )
 

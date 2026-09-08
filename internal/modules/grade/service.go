@@ -43,17 +43,17 @@ func NewGradeRepository(db *gorm.DB) GradeRepository {
 // GetGradesByUid 从数据库获取用户成绩
 func (r *gradeRepository) GetGradesByUid(ctx context.Context, uid int) ([]Grade, error) {
 	var dbGrades []struct {
-		SerialNo string
-		Term     string
-		Code     string
-		Subject  string
-		Score    string
-		Credit   float64
-		Gpa      float64
-		Status   int
-		Property string
+		SerialNo       string
+		Term           string
+		Code           string
+		Subject        string
+		Score          string
+		Credit         float64
+		Gpa            float64
+		Status         int
+		Property       string
 		CourseProperty string
-		Flag     string
+		Flag           string
 	}
 
 	err := r.db.WithContext(ctx).
@@ -70,17 +70,17 @@ func (r *gradeRepository) GetGradesByUid(ctx context.Context, uid int) ([]Grade,
 	grades := make([]Grade, len(dbGrades))
 	for i, g := range dbGrades {
 		grades[i] = Grade{
-			SerialNo: g.SerialNo,
-			Term:     g.Term,
-			Code:     g.Code,
-			Subject:  g.Subject,
-			Score:    g.Score,
-			Credit:   g.Credit,
-			Gpa:      g.Gpa,
-			Status:   g.Status,
-			Property: g.Property,
+			SerialNo:       g.SerialNo,
+			Term:           g.Term,
+			Code:           g.Code,
+			Subject:        g.Subject,
+			Score:          g.Score,
+			Credit:         g.Credit,
+			Gpa:            g.Gpa,
+			Status:         g.Status,
+			Property:       g.Property,
 			CourseProperty: g.CourseProperty,
-			Flag:     g.Flag,
+			Flag:           g.Flag,
 		}
 	}
 
@@ -243,12 +243,15 @@ func (s *gradeService) GetAllGrades(ctx context.Context, uid int) ([]Grade, *GPA
 
 	// 判断错误类型：登录失败/认证错误不降级，直接返回错误
 	if s.isAuthenticationError(err) {
-		log.Printf("[GetAllGrades] 认证错误，清除绑定信息：uid=%d, err=%v", uid, err)
-		// 清除用户的教务系统绑定
-		if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-			log.Printf("[GetAllGrades] 清除绑定信息失败：uid=%d, err=%v", uid, clearErr)
+		// 注意：此处不再清除数据库中的绑定（sid/spwd）。
+		// 保留学号，前端才能弹出"请输入该学号的教务密码"重新绑定弹窗；
+		// 只清除已失效的会话缓存，避免后续请求继续复用过期 cookie。
+		log.Printf("[GetAllGrades] 认证错误，标记绑定失效（保留学号）：uid=%d, err=%v", uid, err)
+		if invErr := s.sessionService.InvalidateSession(ctx, uid); invErr != nil {
+			log.Printf("[GetAllGrades] 清除会话缓存失败：uid=%d, err=%v", uid, invErr)
 		}
-		return nil, nil, err
+		// 统一为"绑定已失效"，前端据此弹出重新输入教务密码的弹窗
+		return nil, nil, common.NewAppError(common.CodeJwcBindExpired, common.MsgJwcBindExpired)
 	}
 
 	// 超时或网络错误，尝试从数据库获取
@@ -284,8 +287,10 @@ func (s *gradeService) isAuthenticationError(err error) bool {
 		// 真正的认证错误
 		switch appErr.Code {
 		case common.CodeJwcLoginFailed, // 登录失败（用户名/密码错误）
-			common.CodeJwcNotBound,  // 未绑定
-			common.CodeUnauthorized: // 未授权
+			common.CodeJwcNotBound,       // 未绑定
+			common.CodeJwcSessionExpired, // 教务会话已失效（HTTP 401）
+			common.CodeJwcBindExpired,    // 已判定为绑定失效
+			common.CodeUnauthorized:      // 未授权
 			return true
 		}
 	}
@@ -297,6 +302,7 @@ func (s *gradeService) isAuthenticationError(err error) bool {
 		"密码错误",
 		"账号被锁",
 		"认证失败",
+		"登录状态已失效",
 	}
 	for _, keyword := range authKeywords {
 		if strings.Contains(errMsg, keyword) {
@@ -560,12 +566,13 @@ func (s *gradeService) GetLevelGrades(ctx context.Context, uid int) ([]LevelGrad
 
 	// 判断错误类型：登录失败/认证错误不降级，直接返回错误
 	if s.isAuthenticationError(err) {
-		log.Printf("[GetLevelGrades] 认证错误，清除绑定信息：uid=%d, err=%v", uid, err)
-		// 清除用户的教务系统绑定
-		if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-			log.Printf("[GetLevelGrades] 清除绑定信息失败：uid=%d, err=%v", uid, clearErr)
+		// 同上：保留绑定（学号），仅清除失效会话缓存
+		log.Printf("[GetLevelGrades] 认证错误，标记绑定失效（保留学号）：uid=%d, err=%v", uid, err)
+		if invErr := s.sessionService.InvalidateSession(ctx, uid); invErr != nil {
+			log.Printf("[GetLevelGrades] 清除会话缓存失败：uid=%d, err=%v", uid, invErr)
 		}
-		return nil, err
+		// 统一为"绑定已失效"，前端据此弹出重新输入教务密码的弹窗
+		return nil, common.NewAppError(common.CodeJwcBindExpired, common.MsgJwcBindExpired)
 	}
 
 	// 超时或网络错误，尝试从数据库获取
@@ -910,8 +917,8 @@ func (s *gradeService) getCookiesOrLogin(ctx context.Context, uid int, sid, spwd
 
 	// 尝试登录教务系统
 	if err := s.sessionService.LoginAndCache(ctx, uid, sid, spwd); err != nil {
-		// 传播原始错误，不掩盖为"获取会话失败"
-		return nil, err
+		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
+		return nil, common.ToBindExpired(err)
 	}
 
 	// 登录成功后从缓存获取 cookies
@@ -1207,17 +1214,17 @@ func parseGradesJSONBytes(raw []byte) ([]Grade, int, error) {
 		}
 
 		grades = append(grades, Grade{
-			SerialNo: strconv.Itoa(i + 1),
-			Term:     term,
-			Code:     strings.TrimSpace(jsonStr(row.Kch)),
-			Subject:  subject,
-			Score:    score,
-			Credit:   credit,
-			Gpa:      gpa,
-			Status:   status,
-			Property: strings.TrimSpace(jsonStr(row.Kcxzmc)),
+			SerialNo:       strconv.Itoa(i + 1),
+			Term:           term,
+			Code:           strings.TrimSpace(jsonStr(row.Kch)),
+			Subject:        subject,
+			Score:          score,
+			Credit:         credit,
+			Gpa:            gpa,
+			Status:         status,
+			Property:       strings.TrimSpace(jsonStr(row.Kcxzmc)),
 			CourseProperty: strings.TrimSpace(jsonStr(row.Kcsx)),
-			Flag:     strings.TrimSpace(jsonStr(row.Cjbs)),
+			Flag:           strings.TrimSpace(jsonStr(row.Cjbs)),
 		})
 	}
 

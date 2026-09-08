@@ -308,7 +308,8 @@ func (s *evaluationService) getSession(ctx context.Context, uid int, sid, spwd s
 
 	// 没有可用会话（首次访问 / token 过期 / 进程重启后 client 丢失），重新登录教评系统
 	if err := s.LoginAndCacheEvaluation(ctx, uid, sid, spwd); err != nil {
-		return "", nil, err
+		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
+		return "", nil, common.ToBindExpired(err)
 	}
 
 	v, ok := s.clients.Load(uid)
