@@ -123,3 +123,25 @@ type TrendAnalysis struct {
 	WorstTerm    string  `json:"worst_term"`     // 最差的学期
 	WorstTermGPA float64 `json:"worst_term_gpa"` // 最差学期的GPA
 }
+
+// ExportTranscriptRequest 电子成绩单导出请求
+// 字段与教务端 /jsxsd/dzqz/queryDzcjd 表单一致
+type ExportTranscriptRequest struct {
+	// SelShowType 显示方式：1=显示相同科目最好的考试成绩（默认），3=显示相同科目全部的考试成绩
+	SelShowType string `json:"selShowType"`
+	// Tpa 导出类型：1=中文成绩单（默认），2=成绩单(英文)
+	Tpa string `json:"tpa"`
+	// Kclx 课程类型：""=全部（默认），0=主修成绩，1=辅修成绩，9=微专业
+	Kclx string `json:"kclx"`
+	// Dybzypm 是否打印本专业排名：1=是（默认），0=否
+	Dybzypm string `json:"dybzypm"`
+	// Mail 接收成绩单的邮箱
+	Mail string `json:"mail"`
+}
+
+// ExportTranscriptResult 电子成绩单导出结果
+type ExportTranscriptResult struct {
+	Mail     string `json:"mail"`     // 接收邮箱
+	Accepted bool   `json:"accepted"` // 教务端是否已受理
+	Message  string `json:"message"`  // 提示信息
+}

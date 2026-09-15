@@ -850,6 +850,7 @@
                             <button class="btn btn-sm btn-primary" onclick="loadGrades()" data-page-node-id="02zJYyJUyr26KihV8jHWxX">查询</button>
                             <button class="btn btn-sm btn-outline" onclick="loadLevelGrades()" data-page-node-id="4GjH9A1uW59OCVu69Ggm6B">等级考试</button>
                             <button class="btn btn-sm btn-outline" onclick="loadGradeAnalysis()" data-page-node-id="th9RPeFr4EW1W5EoocGi7g">成绩分析</button>
+                            <button class="btn btn-sm btn-outline" onclick="showTranscriptModal()" title="导出官方电子成绩单并发送至邮箱"><svg class="ic"><use href="#i-msg"/></svg>电子成绩单</button>
                         </div>
                     </div>
                     <div id="gradeContent" data-page-node-id="IQNDsEn7tHCDZQAIMMQEH9"></div>
@@ -2115,6 +2116,124 @@
             const slider = document.getElementById('weekSlider');
             if (slider) slider.value = week;
             loadCourses();
+        }
+
+        // ===== 电子成绩单导出（发送至邮箱）=====
+        // 对齐教务端 /jsxsd/dzqz/queryDzcjd 表单：
+        //   selShowType 显示方式 / tpa 导出类型 / kclx 课程类型 / dybzypm 专业排名 / mail 邮箱
+        const TRANSCRIPT_OPTIONS = {
+            selShowType: [
+                { v: '1', t: '显示相同科目最好的考试成绩' },
+                { v: '3', t: '显示相同科目全部的考试成绩' }
+            ],
+            tpa: [
+                { v: '1', t: '成绩单（中文）' },
+                { v: '2', t: '成绩单（英文）' }
+            ],
+            kclx: [
+                { v: '', t: '全部' },
+                { v: '0', t: '主修成绩' },
+                { v: '1', t: '辅修成绩' },
+                { v: '9', t: '微专业' }
+            ],
+            dybzypm: [
+                { v: '1', t: '是' },
+                { v: '0', t: '否' }
+            ]
+        };
+
+        function transcriptField(label, name, opts, def) {
+            const radios = opts.map(o => `
+                <label style="display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--text-secondary);cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--stat-bg);">
+                    <input type="radio" name="${name}" value="${o.v}" ${o.v === def ? 'checked' : ''} style="accent-color:var(--accent);cursor:pointer;">
+                    <span>${escapeHtml(o.t)}</span>
+                </label>`).join('');
+            return `<div style="margin-bottom:14px;">
+                <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:7px;">${escapeHtml(label)}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">${radios}</div>
+            </div>`;
+        }
+
+        function showTranscriptModal() {
+            if (document.getElementById('transcriptOverlay')) return;
+            const defaultMail = (currentUser && currentUser.email) || '';
+            const ov = document.createElement('div');
+            ov.id = 'transcriptOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,25,0.55);z-index:1250;display:flex;align-items:center;justify-content:center;padding:16px;';
+            ov.innerHTML = `
+                <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.25);width:100%;max-width:480px;max-height:90vh;overflow:auto;padding:22px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <div style="font-size:16px;font-weight:700;color:var(--text,#1f2937);">
+                            <svg class="ic"><use href="#i-msg"/></svg> 导出电子成绩单
+                        </div>
+                        <button onclick="closeTranscriptModal()" style="border:none;background:transparent;font-size:20px;line-height:1;color:var(--text-muted,#6b7280);cursor:pointer;" aria-label="关闭">&times;</button>
+                    </div>
+                    <div style="font-size:12.5px;color:var(--text-muted,#6b7280);margin-bottom:16px;line-height:1.7;">
+                        由教务系统生成官方电子成绩单 PDF 并发送到指定邮箱。生成需要一定时间，提交后请耐心等待几分钟。
+                    </div>
+                    ${transcriptField('显示方式', 'selShowType', TRANSCRIPT_OPTIONS.selShowType, '1')}
+                    ${transcriptField('导出类型', 'tpa', TRANSCRIPT_OPTIONS.tpa, '1')}
+                    ${transcriptField('课程类型', 'kclx', TRANSCRIPT_OPTIONS.kclx, '')}
+                    ${transcriptField('打印本专业排名', 'dybzypm', TRANSCRIPT_OPTIONS.dybzypm, '1')}
+                    <div style="margin-bottom:6px;">
+                        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:7px;">接收邮箱</div>
+                        <input id="transcriptMail" type="email" placeholder="请输入接收成绩单的邮箱" value="${escapeHtml(defaultMail)}"
+                            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--input-border,#d1d5db);border-radius:8px;font-size:14px;background:var(--input-bg,#fff);color:var(--text,#1f2937);"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();submitTranscript();}">
+                    </div>
+                    <div id="transcriptMsg" class="message" style="margin-top:10px;font-size:13px;"></div>
+                    <div style="display:flex;gap:10px;margin-top:6px;">
+                        <button class="btn btn-outline" style="flex:1;" onclick="closeTranscriptModal()">取消</button>
+                        <button class="btn btn-primary" style="flex:1.6;" id="transcriptSubmitBtn" onclick="submitTranscript()">发送至邮箱</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(ov);
+            const mail = document.getElementById('transcriptMail');
+            if (mail && !defaultMail) setTimeout(() => mail.focus(), 60);
+        }
+
+        function closeTranscriptModal() {
+            const ov = document.getElementById('transcriptOverlay');
+            if (ov) ov.remove();
+        }
+
+        async function submitTranscript() {
+            const msgEl = document.getElementById('transcriptMsg');
+            const btn = document.getElementById('transcriptSubmitBtn');
+            const mail = (document.getElementById('transcriptMail').value || '').trim();
+            const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!mail) { if (msgEl) { msgEl.textContent = '请填写邮箱'; msgEl.className = 'message error'; } return; }
+            if (!emailRe.test(mail)) { if (msgEl) { msgEl.textContent = '请输入正确的邮箱格式'; msgEl.className = 'message error'; } return; }
+
+            const pick = name => {
+                const el = document.querySelector(`input[name="${name}"]:checked`);
+                return el ? el.value : '';
+            };
+            const payload = {
+                selShowType: pick('selShowType'),
+                tpa: pick('tpa'),
+                kclx: pick('kclx'),
+                dybzypm: pick('dybzypm'),
+                mail: mail
+            };
+
+            if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
+            if (msgEl) { msgEl.textContent = '正在提交至教务系统…'; msgEl.className = 'message info'; }
+
+            const data = await apiFetch(API_BASE + '/user/grades/transcript/export', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            if (btn) { btn.disabled = false; btn.textContent = '发送至邮箱'; }
+            if (!data) return;
+            if (data.code === 0) {
+                const tip = (data.data && data.data.message) || '已提交，请稍后查收邮箱';
+                if (msgEl) { msgEl.innerHTML = '✅ ' + escapeHtml(tip) + '<br><span style="font-size:12px;">若几分钟后仍未收到，请检查垃圾邮件文件夹，或稍后重试。</span>'; msgEl.className = 'message success'; }
+                setTimeout(closeTranscriptModal, 6000);
+            } else {
+                if (msgEl) { msgEl.textContent = data.message || '提交失败，请稍后重试'; msgEl.className = 'message error'; }
+            }
         }
 
         // ===== 密码显示/隐藏切换 =====

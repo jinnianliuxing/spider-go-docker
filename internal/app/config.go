@@ -55,6 +55,9 @@ type JwcModeConfig struct {
 	GradeURL      string `yaml:"grade_url" mapstructure:"grade_url"`
 	GradeLevelURL string `yaml:"grade_level_url" mapstructure:"grade_level_url"`
 	ExamURL       string `yaml:"exam_url" mapstructure:"exam_url"`
+	// TranscriptURL 电子成绩单「发送至邮箱」接口
+	// 教务端逐个请求处理较慢（异步生成 PDF 后发信），超时需放宽
+	TranscriptURL string `yaml:"transcript_url" mapstructure:"transcript_url"`
 	// 教评系统配置
 	EvaluationRedirectURL string `yaml:"evaluation_redirect_url" mapstructure:"evaluation_redirect_url"`
 	EvaluationInfoURL     string `yaml:"evaluation_info_url" mapstructure:"evaluation_info_url"`

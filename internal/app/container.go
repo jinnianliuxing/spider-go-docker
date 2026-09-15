@@ -285,6 +285,7 @@ func (c *Container) initModules() {
 		c.ConfigCache,
 		currentMode.GradeURL,
 		currentMode.GradeLevelURL,
+		currentMode.TranscriptURL,
 	)
 
 	// Course Module（课程模块）

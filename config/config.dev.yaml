@@ -63,6 +63,7 @@ jwc:
     course_url: "http://jwxt.csuft.edu.cn/jsxsd/xskb/xskb_list.do?viweType=0"
     grade_url: "http://jwxt.csuft.edu.cn/jsxsd/kscj/cjcx_list"
     grade_level_url: "http://jwxt.csuft.edu.cn/jsxsd/kscj/djkscj_list?type=listData"
+    transcript_url: "http://jwxt.csuft.edu.cn/jsxsd/dzqz/printXscjkByQzPdf"
     exam_url: "http://jwxt.csuft.edu.cn/jsxsd/xsks/xsksap_list"
     # 教评系统配置
     evaluation_redirect_url: "https://cas.csuft.edu.cn/cas/login?service=https%3A%2F%2Fjxzlpt.csuft.edu.cn%3A443%2Fcas%2FtoUrl%3Ftype%3Dpc"
@@ -78,6 +79,7 @@ jwc:
     course_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/xskb/xskb_list.do?viweType=0"
     grade_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/kscj/cjcx_list"
     grade_level_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/kscj/djkscj_list?type=listData"
+    transcript_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/dzqz/printXscjkByQzPdf"
     exam_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/xsks/xsksap_list"
     # 教评系统配置（WebVPN 模式下也需要访问教评平台）
     # 入口是 https-jxzlpt-csuft-edu-cn-443 域下的 /cas/toUrl?type=pc，由 webvpn 自动跳转 CAS。

@@ -27,6 +27,7 @@ func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 		grades.GET("/analysis", h.GetGradesAnalysis)  // 获取成绩分析
 		grades.POST("/regular", h.GetRegularScore)    // 获取平时分
 		grades.GET("/student-info", h.GetStudentInfo) // 获取学生信息（年级、学院、专业、班级）
+		grades.POST("/transcript/export", h.ExportTranscript) // 导出电子成绩单（发送至邮箱）
 	}
 }
 
@@ -203,4 +204,38 @@ func (h *Handler) GetStudentInfo(c *gin.Context) {
 	}
 
 	common.Success(c, info)
+}
+
+// ExportTranscript 导出电子成绩单（发送至指定邮箱）
+// @Summary 导出电子成绩单并发送至邮箱
+// @Tags Grade
+// @Accept json
+// @Produce json
+// @Param request body ExportTranscriptRequest true "电子成绩单导出请求"
+// @Success 200 {object} ExportTranscriptResult
+// @Router /grades/transcript/export [post]
+func (h *Handler) ExportTranscript(c *gin.Context) {
+	uid, ok := c.Get("uid")
+	if !ok {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+
+	var req ExportTranscriptRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Error(c, common.CodeInvalidParams, "请求参数错误")
+		return
+	}
+
+	result, err := h.service.ExportTranscript(c.Request.Context(), uid.(int), req)
+	if err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.ErrorWithAppError(c, appErr)
+		} else {
+			common.Error(c, common.CodeInternalError, "导出电子成绩单失败")
+		}
+		return
+	}
+
+	common.Success(c, result)
 }
