@@ -28,7 +28,13 @@ services:
       retries: 10
 
   spider-go:
-    build: .
+    # 默认只使用已加载的镜像，不再本地构建。
+    # 原因：服务器上没有 Go 工具链 / 拉不到 goproxy，`build: .` 会让
+    # `docker compose up -d` 尝试构建并失败或长时间卡住。
+    # 现在的部署流程：docker load -i spider-go-image.tar && docker compose up -d
+    #
+    # 本地开发需要重新构建镜像时，显式加参数即可覆盖：
+    #   docker compose up -d --build
     image: spider-go:latest
     container_name: spider-go
     restart: always

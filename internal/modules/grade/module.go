@@ -24,9 +24,10 @@ func NewModule(
 	configCache cache.ConfigCache,
 	gradeURL string,
 	gradeLevelURL string,
+	transcriptURL string,
 ) *Module {
 	// 初始化各层：service -> handler
-	svc := NewService(userQuery, sessionService, crawlerService, userDataCache, configCache, gradeURL, gradeLevelURL)
+	svc := NewService(userQuery, sessionService, crawlerService, userDataCache, configCache, gradeURL, gradeLevelURL, transcriptURL)
 	handler := NewHandler(svc)
 
 	return &Module{

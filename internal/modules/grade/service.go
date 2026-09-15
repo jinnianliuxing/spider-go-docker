@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"math"
@@ -140,6 +141,8 @@ type Service interface {
 	GetRecentTermsGrades(ctx context.Context, uid int) (*TermsGradesAnalysis, error)
 	// GetUserGradeMajorClass 获取用户年级专业班级
 	GetUserGradeMajorClass(ctx context.Context, uid int) (*UserDetailedInfo, error)
+	// ExportTranscript 导出电子成绩单（发送至指定邮箱）
+	ExportTranscript(ctx context.Context, uid int, req ExportTranscriptRequest) (*ExportTranscriptResult, error)
 	// SetReconciliationTrigger 设置对账触发器（用于延迟注入，避免循环依赖）
 	SetReconciliationTrigger(trigger ReconciliationTrigger)
 }
@@ -155,7 +158,15 @@ type gradeService struct {
 	reconciliationTrigger ReconciliationTrigger
 	gradeURL              string
 	gradeLevelURL         string
+	transcriptURL         string
 }
+
+// transcriptTimeout 电子成绩单接口超时。
+// 教务端在请求内同步生成 PDF 并发送邮件，耗时可达数十秒，故单独放宽到 5 分钟。
+const transcriptTimeout = 5 * time.Minute
+
+// emailRegex 邮箱格式校验（与教务端前端校验规则一致）
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
 
 // baseURL 从配置注入的教务 URL 反推站点根地址（scheme://host）。
 // 替换此前硬编码的 jwgl 域名，使 campus 与 webvpn 两种模式自动适配。
@@ -175,6 +186,7 @@ func NewService(
 	configCache cache.ConfigCache,
 	gradeURL string,
 	gradeLevelURL string,
+	transcriptURL string,
 ) Service {
 	return &gradeService{
 		userQuery:      userQuery,
@@ -184,6 +196,7 @@ func NewService(
 		configCache:    configCache,
 		gradeURL:       gradeURL,
 		gradeLevelURL:  gradeLevelURL,
+		transcriptURL:  transcriptURL,
 	}
 }
 
@@ -772,6 +785,219 @@ func (s *gradeService) GetRegularGrades(ctx context.Context, uid int, term strin
 	return regularGrade, nil
 }
 
+// ExportTranscript 导出电子成绩单（发送至指定邮箱）
+//
+// 教务端流程：GET /jsxsd/dzqz/queryDzcjd 渲染表单 → POST /jsxsd/dzqz/printXscjkByQzPdf
+// 表单字段：selShowType(显示方式) / tpa(导出类型) / kclx(课程类型) / dybzypm(是否含专业排名) / mail(接收邮箱)
+//
+// 设计：该接口在教务端为同步阻塞处理（生成 PDF + 发信），耗时可达数十秒甚至更久，
+// 直接同步等待会撞上前端/网关的超时（nginx 默认 60s）。因此这里采用**异步提交**：
+// 先完成参数校验与会话准备，然后立即返回"已受理"，真正的请求放到后台 goroutine 执行。
+// 用户只需稍后查收邮件，无需保持页面等待。
+func (s *gradeService) ExportTranscript(ctx context.Context, uid int, req ExportTranscriptRequest) (*ExportTranscriptResult, error) {
+	if s.transcriptURL == "" {
+		return nil, common.NewAppError(common.CodeNotImplemented, "当前教务模式未配置电子成绩单接口")
+	}
+
+	// 参数校验（与教务端前端校验保持一致）
+	mail := strings.TrimSpace(req.Mail)
+	if mail == "" {
+		return nil, common.NewAppError(common.CodeInvalidParams, "请填写接收成绩单的邮箱")
+	}
+	if !emailRegex.MatchString(mail) {
+		return nil, common.NewAppError(common.CodeInvalidParams, "邮箱格式不正确")
+	}
+
+	// 归一化选项，非法值回退默认（对齐教务端表单默认项）
+	selShowType := req.SelShowType
+	if selShowType != "1" && selShowType != "3" {
+		selShowType = "1"
+	}
+	tpa := req.Tpa
+	if tpa != "1" && tpa != "2" {
+		tpa = "1"
+	}
+	kclx := req.Kclx
+	if kclx != "" && kclx != "0" && kclx != "1" && kclx != "9" {
+		kclx = ""
+	}
+	dybzypm := req.Dybzypm
+	if dybzypm != "0" && dybzypm != "1" {
+		dybzypm = "1"
+	}
+
+	// 获取用户绑定信息
+	user, err := s.userQuery.GetUserByUid(ctx, uid)
+	if err != nil {
+		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
+	}
+	if user.Sid == "" || user.Spwd == "" {
+		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
+	}
+
+	// 获取会话（必要时自动重登）——这一步同步完成，以便把"绑定失效"立即反馈给用户
+	cookies, fromCache, err := s.getCookiesOrLoginEx(ctx, uid, user.Sid, user.Spwd)
+	if err != nil {
+		return nil, err
+	}
+
+	// 会话预检：**仅对缓存命中的会话**探测。
+	// 刚登录拿到的会话必然是新鲜的，无需多花一次往返。
+	// 缓存会话则可能"看起来未过期"但教务端已单方面失效
+	// （典型场景：服务重启后 Redis 中的陈旧会话被复用），
+	// 直接提交会被踢回登录页，前端却收到"已受理"，造成静默失败。
+	if fromCache && !s.probeSessionAlive(ctx, cookies) {
+		log.Printf("[transcript] uid=%d 缓存会话已失效，强制重新登录", uid)
+		if invErr := s.sessionService.InvalidateSession(ctx, uid); invErr == nil {
+			cookies, err = s.getCookiesOrLogin(ctx, uid, user.Sid, user.Spwd)
+			if err != nil {
+				return nil, err
+			}
+		}
+		// 重登后仍不可用，说明教务系统侧异常，避免给出"已提交"的假成功
+		if !s.probeSessionAlive(ctx, cookies) {
+			return nil, common.NewAppError(common.CodeJwcRequestFailed,
+				"教务系统登录状态异常，请稍后重试；若持续失败请在成绩页重新查询一次以刷新登录状态")
+		}
+	}
+
+	form := url.Values{}
+	form.Set("selShowType", selShowType)
+	form.Set("tpa", tpa)
+	form.Set("kclx", kclx)
+	form.Set("dybzypm", dybzypm)
+	form.Set("mail", mail)
+
+	// 后台异步执行真正的导出请求。
+	// 使用 context.Background() 而非请求 ctx：HTTP 响应返回后请求 ctx 会被取消，
+	// 会导致后台请求被中断。这里由 transcriptTimeout 独立控制生命周期。
+	go s.runTranscriptExport(uid, mail, form, cookies)
+
+	return &ExportTranscriptResult{
+		Mail:     mail,
+		Accepted: true,
+		Message:  "已提交至教务系统，正在生成成绩单并发送邮件，请稍后查收（通常需要几分钟）",
+	}, nil
+}
+
+// runTranscriptExport 在后台完成电子成绩单请求。
+// 该函数不向用户直接返回错误（响应早已发出），仅记录日志便于排查。
+func (s *gradeService) runTranscriptExport(uid int, mail string, form url.Values, cookies []*http.Cookie) {
+	reqCtx, cancel := context.WithTimeout(context.Background(), transcriptTimeout)
+	defer cancel()
+
+	body, err := s.crawlerService.FetchWithCookies(reqCtx, "POST", s.transcriptURL, cookies, form)
+	if err != nil {
+		// 超时通常意味着教务端仍在后台处理（PDF 生成 + 发信），不必视为失败
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(reqCtx.Err(), context.DeadlineExceeded) {
+			log.Printf("[transcript] uid=%d mail=%s 请求超时，教务端可能仍在后台处理", uid, mail)
+			return
+		}
+		// 实测：教务端受理任务后返回 404 通用错误页（"抱歉，您访问的页面不存在"），
+		// 但成绩单仍会正常生成并送达邮箱。此响应属于"已受理"，不能判为失败。
+		if appErr, ok := err.(*common.AppError); ok &&
+			(appErr.Code == common.CodeInvalidResponse ||
+				strings.Contains(appErr.Message, "unexpected status code")) {
+			log.Printf("[transcript] uid=%d mail=%s 教务端已受理（返回非 200 属正常，任务在后台处理）", uid, mail)
+			return
+		}
+		log.Printf("[transcript] uid=%d mail=%s 请求失败: %v", uid, mail, err)
+		return
+	}
+	defer body.Close()
+
+	raw, readErr := io.ReadAll(body)
+	if readErr != nil {
+		log.Printf("[transcript] uid=%d mail=%s 读取响应失败: %v", uid, mail, readErr)
+		return
+	}
+
+	text := string(raw)
+	// 登录态失效：提交前的预检已尽量拦截，此处兜底记录便于排查
+	if isSessionExpiredDoc(text) {
+		log.Printf("[transcript] uid=%d mail=%s 教务会话已失效，需重新绑定", uid, mail)
+		return
+	}
+	log.Printf("[transcript] uid=%d mail=%s 教务端已受理", uid, mail)
+}
+
+// probeSessionAlive 用给定 cookies 探测教务会话是否真的有效。
+//
+// 背景：Redis 中的会话缓存 TTL 为 1 小时，但教务端会话寿命可能更短，
+// 且服务重启后 Redis 可能保留旧会话（教务端已单方面失效）。
+// 此时直接提交导出请求会被踢回登录页，前端却收到"已受理"，
+// 造成用户永远收不到邮件的静默失败。因此在关键操作前主动探测一次。
+//
+// 判据（实测确定，不依赖页面文案）：
+// 强智教务系统的数据接口在登录态无效时**固定返回紧凑 JSON**
+//
+//	{"flag1":2,"msgContent":"请先登录系统"}
+//
+// 会话有效时同一接口返回成绩数据（flag1 为 1 或直接是数据列表），
+// 绝不会出现 "请先登录系统"。因此只需在响应中匹配该文案即可可靠判定。
+// 注意：教务端对无效 cookie 也会**重新下发** bzb_jsxsd（匿名会话），
+// 所以"cookie 值是否变化"是伪判据，不可使用。
+func (s *gradeService) probeSessionAlive(ctx context.Context, cookies []*http.Cookie) bool {
+	if len(cookies) == 0 {
+		return false
+	}
+
+	probeCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	// 探测成绩查询接口：响应体极小，且失效信号稳定。
+	// 该接口需要 Referer（由 refererFor 自动补齐）与 X-Requested-With（crawler 已内置）。
+	probeURL := s.gradeURL + "?kksj=&kctype=&kcsxdm=&kcxz=&kcmc=&xsfs=all"
+	body, err := s.crawlerService.FetchWithCookies(probeCtx, "GET", probeURL, cookies, nil)
+	if err != nil {
+		// 请求失败无法判定会话状态，交给后续流程处理（避免误判导致强制重登）
+		return true
+	}
+	defer body.Close()
+
+	raw, readErr := io.ReadAll(body)
+	if readErr != nil {
+		return true
+	}
+	return sessionLooksValid(string(raw))
+}
+
+// sessionLooksValid 判断探测响应是否表明会话有效。
+func sessionLooksValid(text string) bool {
+	if text == "" {
+		return true
+	}
+	// 强智教务系统未登录时的标准响应（实测，最可靠判据）：
+	//   {"flag1":2,"msgContent":"请先登录系统"}
+	// 只匹配明确文案，不用 flag1 数值——避免其他接口正常返回 flag1:2 时被误踢。
+	if strings.Contains(text, "请先登录系统") {
+		return false
+	}
+	// 明确的未登录/超时文案
+	if isSessionExpiredDoc(text) {
+		return false
+	}
+	// 登录页特征：密码输入框
+	if strings.Contains(text, "name=\"password\"") || strings.Contains(text, "id=\"password\"") {
+		return false
+	}
+	return true
+}
+
+// isSessionExpiredDoc 判断响应正文是否因登录态失效被踢回登录页
+func isSessionExpiredDoc(text string) bool {
+	return strings.Contains(text, "用户没有登录") ||
+		strings.Contains(text, "请重新登录") ||
+		strings.Contains(text, "请先登录") ||
+		strings.Contains(text, "正在登录") ||
+		strings.Contains(text, "用户未登录") ||
+		strings.Contains(text, "登录超时") ||
+		strings.Contains(text, "会话已过期") ||
+		strings.Contains(text, "会话超时") ||
+		strings.Contains(text, "userPassword") ||
+		strings.Contains(text, "LoginToXk")
+}
+
 // GetUserGradeMajorClass 获取用户年级、学院、专业、班级信息
 func (s *gradeService) GetUserGradeMajorClass(ctx context.Context, uid int) (*UserDetailedInfo, error) {
 	// 获取用户信息
@@ -906,33 +1132,41 @@ func (s *gradeService) parseStudentInfoFromHTML(r io.Reader, sid string) (*UserD
 
 // getCookiesOrLogin 获取缓存的 cookies 或登录
 func (s *gradeService) getCookiesOrLogin(ctx context.Context, uid int, sid, spwd string) ([]*http.Cookie, error) {
+	cookies, _, err := s.getCookiesOrLoginEx(ctx, uid, sid, spwd)
+	return cookies, err
+}
+
+// getCookiesOrLoginEx 与 getCookiesOrLogin 相同，但额外返回"cookies 是否来自缓存"。
+// 调用方可用该标记判断是否需要做会话有效性预检——缓存命中的会话可能是陈旧的，
+// 而新登录得到的会话必然新鲜。
+func (s *gradeService) getCookiesOrLoginEx(ctx context.Context, uid int, sid, spwd string) ([]*http.Cookie, bool, error) {
 	cookies, err := s.sessionService.GetCachedCookies(ctx, uid)
 	if err != nil {
-		return nil, common.NewAppError(common.CodeCacheError, "缓存错误")
+		return nil, false, common.NewAppError(common.CodeCacheError, "缓存错误")
 	}
 
 	if len(cookies) > 0 {
-		return cookies, nil
+		return cookies, true, nil
 	}
 
 	// 尝试登录教务系统
 	if err := s.sessionService.LoginAndCache(ctx, uid, sid, spwd); err != nil {
 		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
-		return nil, common.ToBindExpired(err)
+		return nil, false, common.ToBindExpired(err)
 	}
 
 	// 登录成功后从缓存获取 cookies
 	cookies, err = s.sessionService.GetCachedCookies(ctx, uid)
 	if err != nil {
-		return nil, common.NewAppError(common.CodeCacheError, "读取缓存失败")
+		return nil, false, common.NewAppError(common.CodeCacheError, "读取缓存失败")
 	}
 	if len(cookies) == 0 {
 		// 登录声称成功了但缓存没有 cookies，
 		// 说明教务系统返回了 302 但目标系统不可达（例如校园网外访问教务系统）
-		return nil, common.NewAppError(common.CodeJwcRequestFailed, "教务系统网络连接异常，请稍后重试")
+		return nil, false, common.NewAppError(common.CodeJwcRequestFailed, "教务系统网络连接异常，请稍后重试")
 	}
 
-	return cookies, nil
+	return cookies, false, nil
 }
 
 // parseGradesFromHTML 解析成绩 HTML

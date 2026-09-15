@@ -2,13 +2,14 @@
 app:
   port: 8080
   env: production
+  #base_url: "https://yourdomain.com"
 
 cors:
   allow_origins:
+    - "https://spider-go.cc.cd"   # Cloudflare Tunnel HTTPS 访问
+    - "http://spider-go.cc.cd"    # 兼容 HTTP 访问
     - "http://localhost"          # 本地部署默认
-    - "http://localhost:8080"
-    - "http://127.0.0.1"
-    - "http://127.0.0.1:8080"
+    #- "http://localhost:8080"        # 本地部署默认
   allow_methods:
     - "GET"
     - "POST"
@@ -31,24 +32,23 @@ database:
   source: mysql
   port: 3306
   user: root
-  pass: root123                # 默认密码对应 .env.example 中的 MYSQL_ROOT_PASSWORD
+  pass: 230172
   name: spider_go
 
 # Redis 配置：host 用服务名 "redis"，密码要和 .env 里的 REDIS_PASSWORD 保持一致
 redis:
   session:
     host: redis:6379
-    pass: redis123              # 默认密码对应 .env.example 中的 REDIS_PASSWORD
+    pass: 230172
     db: 0
   captcha:
     host: redis:6379
-    pass: redis123              # 默认密码对应 .env.example 中的 REDIS_PASSWORD
+    pass: 230172
     db: 1
 
 jwt:
-  secret: "dev_secret_key_change_in_production"
+  secret: "cd9c5382138bc6ad48f95c4f4014a345941fb762a890a7a5908cfdd5afcef00b"
   issuer: "spider-go"
-
 
 # 教务系统地址：这是学校官方系统，不是别人的私有服务器，一般不用改
 jwc:
@@ -62,6 +62,7 @@ jwc:
     course_url: "http://jwxt.csuft.edu.cn/jsxsd/xskb/xskb_list.do?viweType=0"
     grade_url: "http://jwxt.csuft.edu.cn/jsxsd/kscj/cjcx_list"
     grade_level_url: "http://jwxt.csuft.edu.cn/jsxsd/kscj/djkscj_list?type=listData"
+    transcript_url: "http://jwxt.csuft.edu.cn/jsxsd/dzqz/printXscjkByQzPdf"
     exam_url: "http://jwxt.csuft.edu.cn/jsxsd/xsks/xsksap_list"
     evaluation_redirect_url: "https://cas.csuft.edu.cn/cas/login?service=https%3A%2F%2Fjxzlpt.csuft.edu.cn%3A443%2Fcas%2FtoUrl%3Ftype%3Dpc"
     evaluation_info_url: "https://jxzlpt.csuft.edu.cn/api/xspj/xspj/getXspjtask"
@@ -75,6 +76,7 @@ jwc:
     course_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/xskb/xskb_list.do?viweType=0"
     grade_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/kscj/cjcx_list"
     grade_level_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/kscj/djkscj_list?type=listData"
+    transcript_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/dzqz/printXscjkByQzPdf"
     exam_url: "https://http-jwxt-csuft-edu-cn-80.webvpn.csuft.edu.cn/jsxsd/xsks/xsksap_list"
     # 教评系统走 webvpn 网关: 入口是 https-jxzlpt-csuft-edu-cn-443 域下的 /cas/toUrl?type=pc,
     # 由 webvpn 自动把 CAS 登录跳转到 https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn。
@@ -88,12 +90,12 @@ jwc:
   captcha_url: "https://https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn/cas/needCaptcha.html?"
   captcha_image_url: "https://https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn/cas/captcha.html?"
 
-# 邮件配置：用来发验证码，本地测试可以先不配，验证码会打印到日志
+# 邮件配置：用来发验证码，需要你自己的 SMTP 账号（QQ邮箱要开 SMTP 并用"授权码"当密码，不是QQ密码本身）
 email:
   smtp_host: "smtp.qq.com"
   smtp_port: 465
-  username: ""                   # 留空则本地测试跳过邮件发送，验证码打印在日志
-  password: ""
+  username: "3374793735@qq.com"
+  password: "ibmuhcxhuuhadaec"
   from_name: "Spider-Go 验证码"
 
 # 微信登录：不需要的话留空即可，相关接口会失败但不影响其他功能
