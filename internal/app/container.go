@@ -289,12 +289,15 @@ func (c *Container) initModules() {
 	)
 
 	// Course Module（课程模块）
+	// probeURL 传成绩数据接口：会话失效时该接口的返回信号最稳定（实测），
+	// 课表/考试模块借它验活缓存会话，避免拿失效 cookie 请求导致课表静默空白。
 	c.CourseModule = course.NewModule(
 		c.UserQuery,
 		c.SessionService,
 		c.CrawlerService,
 		c.UserDataCache,
 		currentMode.CourseURL,
+		currentMode.GradeURL,
 	)
 
 	// Exam Module（考试模块）
@@ -304,6 +307,7 @@ func (c *Container) initModules() {
 		c.CrawlerService,
 		c.UserDataCache,
 		currentMode.ExamURL,
+		currentMode.GradeURL,
 	)
 
 	// Evaluation Module（教评模块）

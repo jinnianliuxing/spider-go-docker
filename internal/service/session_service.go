@@ -109,9 +109,22 @@ func NewJwcSessionService(
 	}
 }
 
+// maxLoginAttempts 登录尝试次数上限。
+//
+// WebVPN 链路要依次经过 auth/start → CAS → callback → 令牌交换 → 强智本地登录，
+// 任一跳遇到瞬时网络抖动都会整体失败，重试一次能显著减少"偶发登录失败"。
+// 但只对**可重试**的错误重试（见 isRetryableLoginError）：
+// 密码错误、需要短信验证这类确定性结果重试多少次都不会变，只会白等一轮。
+const maxLoginAttempts = 2
+
 func (s *jwcSessionService) LoginAndCache(ctx context.Context, uid int, username, password string) error {
 	var err error
-	for i := 0; i < 1; i++ {
+	attempts := 0
+	for i := 0; i < maxLoginAttempts; i++ {
+		attempts++
+		if i > 0 {
+			time.Sleep(time.Second * time.Duration(i))
+		}
 		if s.mode == "webvpn" {
 			err = s.loginAndCacheOnceByWebVPN(ctx, uid, username, password)
 		} else {
@@ -120,12 +133,39 @@ func (s *jwcSessionService) LoginAndCache(ctx context.Context, uid int, username
 		if err == nil {
 			return nil
 		}
-		time.Sleep(time.Second * time.Duration(i+1))
+		// 请求上下文已结束，或该错误重试无意义 → 立即返回真实原因
+		if ctx.Err() != nil || !isRetryableLoginError(err) {
+			break
+		}
+	}
+
+	retried := ""
+	if attempts > 1 {
+		retried = " (已重试)"
 	}
 	if appErr, ok := err.(*common.AppError); ok {
-		return common.NewAppError(appErr.Code, fmt.Sprintf("%s (已重试)", appErr.Message))
+		return common.NewAppError(appErr.Code, appErr.Message+retried)
 	}
 	return common.NewAppError(common.CodeJwcLoginFailed, fmt.Sprintf("登录失败，请重试: %v", err))
+}
+
+// isRetryableLoginError 判断登录失败是否属于"瞬时故障、值得再试一次"。
+// 仅超时、网络/服务端请求失败这类可恢复错误返回 true；
+// 密码错误、需要多因素认证、页面结构变化等确定性结果一律不重试。
+func isRetryableLoginError(err error) bool {
+	appErr, ok := err.(*common.AppError)
+	if !ok {
+		// 非业务错误（底层网络错误）按可重试处理
+		return true
+	}
+	switch appErr.Code {
+	case common.CodeJwcLoginTimeout,
+		common.CodeJwcRequestFailed,
+		common.CodeHttpRequestFailed,
+		common.CodeInvalidResponse:
+		return true
+	}
+	return false
 }
 
 func (s *jwcSessionService) loginAndCacheOnce(ctx context.Context, uid int, username, password string) error {
@@ -485,6 +525,27 @@ func (s *jwcSessionService) startWebVPNAuthSession(ctx context.Context, client *
 	return startResult.Data.Action.LoginURL, nil
 }
 
+// resolveLoginURL 返回本次登录应当使用的 CAS 登录地址。
+//
+// WebVPN 模式下必须先调 auth/start 动态获取：学校会轮换 CAS 认证方式的 externalId，
+// config 里硬编码的 login_url 里的 externalId 会过期，直接使用会导致认证失败或
+// 把短信验证码下发到已失效的会话上。仅在动态获取失败时回退到配置值。
+func (s *jwcSessionService) resolveLoginURL(ctx context.Context, client *http.Client) (string, error) {
+	if s.mode != "webvpn" {
+		return s.loginURL, nil
+	}
+	dynamicURL, err := s.startWebVPNAuthSession(ctx, client)
+	if err != nil {
+		log.Printf("[WebVPN] auth/start 失败，回退到配置的 login_url: %v", err)
+		return s.loginURL, nil
+	}
+	if dynamicURL == "" {
+		return s.loginURL, nil
+	}
+	log.Printf("[WebVPN] 已通过 auth/start 获取本次登录地址")
+	return dynamicURL, nil
+}
+
 // loginAndCacheOnceByWebVPN WebVPN 登录逻辑
 func (s *jwcSessionService) loginAndCacheOnceByWebVPN(ctx context.Context, uid int, username, password string) error {
 	jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
@@ -493,14 +554,10 @@ func (s *jwcSessionService) loginAndCacheOnceByWebVPN(ctx context.Context, uid i
 	}
 	client := &http.Client{Jar: jar, Timeout: s.timeout, CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }}
 
-	// 0. WebVPN 新流程：先调用 auth/start 创建认证会话，动态获取本次登录用的 CAS login_url
-	// （学校会轮换 CAS 认证方式的 externalId，config 中硬编码的 login_url 会失效）
-	loginURL := s.loginURL
-	if dynamicURL, err := s.startWebVPNAuthSession(ctx, client); err != nil {
-		log.Printf("[WebVPN] auth/start 失败，回退到配置的 login_url: %v", err)
-	} else if dynamicURL != "" {
-		loginURL = dynamicURL
-		log.Printf("[WebVPN] 已通过 auth/start 获取本次登录地址")
+	// 0. 动态解析本次登录用的 CAS login_url（见 resolveLoginURL）
+	loginURL, err := s.resolveLoginURL(ctx, client)
+	if err != nil {
+		return err
 	}
 
 	// 1. GET CAS 登录页
@@ -1002,7 +1059,16 @@ func (s *jwcSessionService) cleanExpiredMFASessions() {
 func (s *jwcSessionService) StartPhoneMFALogin(ctx context.Context, uid int, username, password string) (string, string, error) {
 	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
 	client := &http.Client{Jar: jar, Timeout: s.timeout, CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse }}
-	res, err := client.Get(s.loginURL)
+
+	// 与主登录流程一致：先经 auth/start 拿本次登录的 CAS 地址。
+	// 直接用配置里的 login_url 会踩到轮换后的 externalId（死链），
+	// 表现为"发不出验证码"或验证码被下发到已失效的会话上。
+	loginURL, err := s.resolveLoginURL(ctx, client)
+	if err != nil {
+		return "", "", err
+	}
+
+	res, err := client.Get(loginURL)
 	if err != nil {
 		if isTimeoutError(err) {
 			return "", "", common.NewAppError(common.CodeJwcLoginTimeout, "教务系统连接超时")
@@ -1026,7 +1092,7 @@ func (s *jwcSessionService) StartPhoneMFALogin(ctx context.Context, uid int, use
 	if !needMFA {
 		return "", "", common.NewAppError(common.CodeJwcLoginFailed, "该账号当前不需要短信验证")
 	}
-	base, _ := casBaseURL(s.loginURL)
+	base, _ := casBaseURL(loginURL)
 	challenge, err := s.initPhoneMFA(ctx, client, base, state)
 	if err != nil {
 		return "", "", err
@@ -1037,7 +1103,7 @@ func (s *jwcSessionService) StartPhoneMFALogin(ctx context.Context, uid int, use
 	challengeID, _ := s.GenerateRandomFingerPrintHash()
 	s.pendingMFAMu.Lock()
 	s.cleanExpiredMFASessions()
-	s.pendingMFA[challengeID] = &pendingMFASession{uid: uid, username: username, password: password, client: client, execution: execution, fpVisitorId: fpVisitorId, mfaState: state, gid: challenge.GID, attestURL: challenge.AttestServerURL, loginURL: s.loginURL, redirectURL: s.redirectURL, cookieCache: s.sessionCache, expiresAt: time.Now().Add(5 * time.Minute)}
+	s.pendingMFA[challengeID] = &pendingMFASession{uid: uid, username: username, password: password, client: client, execution: execution, fpVisitorId: fpVisitorId, mfaState: state, gid: challenge.GID, attestURL: challenge.AttestServerURL, loginURL: loginURL, redirectURL: s.redirectURL, cookieCache: s.sessionCache, expiresAt: time.Now().Add(5 * time.Minute)}
 	s.pendingMFAMu.Unlock()
 	return challengeID, challenge.SecurePhone, nil
 }

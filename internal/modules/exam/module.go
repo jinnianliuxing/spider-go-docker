@@ -21,8 +21,9 @@ func NewModule(
 	crawlerService service.CrawlerService,
 	userDataCache cache.UserDataCache,
 	examURL string,
+	probeURL string,
 ) *Module {
-	svc := NewService(userQuery, sessionService, crawlerService, userDataCache, examURL)
+	svc := NewService(userQuery, sessionService, crawlerService, userDataCache, examURL, probeURL)
 	handler := NewHandler(svc)
 
 	return &Module{

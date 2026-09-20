@@ -48,6 +48,7 @@ type courseService struct {
 	courseRepo            CourseRepository
 	reconciliationTrigger ReconciliationTrigger
 	courseURL             string
+	probeURL              string // 会话探测地址（用成绩数据接口，失效信号最稳定）
 }
 
 // NewService 创建课程服务
@@ -57,6 +58,7 @@ func NewService(
 	crawlerService service.CrawlerService,
 	userDataCache cache.UserDataCache,
 	courseURL string,
+	probeURL string,
 ) Service {
 	return &courseService{
 		userQuery:      userQuery,
@@ -64,6 +66,7 @@ func NewService(
 		crawlerService: crawlerService,
 		userDataCache:  userDataCache,
 		courseURL:      courseURL,
+		probeURL:       probeURL,
 	}
 }
 
@@ -184,9 +187,15 @@ func (s *courseService) fetchCourseTableFromJwc(ctx context.Context, uid int, si
 		return nil, err
 	}
 
-	// 构造请求（新版教务课表为 GET /xskb/xskb_list.do?viweType=0&zc=..&xnxq01id=..）
+	// 构造请求。zc 必须留空 —— 这是与浏览器实测行为保持一致的关键。
+	// 2026-09-18 浏览器 HAR 实测：GET /jsxsd/xskb/xskb_list.do?viweType=0&xnxq01id=<学期>&zc=（空）
+	// 返回该学期**全部周次**的完整课表（2026-2027-1 → 9 门；2025-2026-2 → 20 门），
+	// 且响应页 select#zc 的 31 个 option（(全部)+1..30）**没有任何 selected**，
+	// 所以 weekNo 会保持 requestWeek，再由本地 weekInWeeks() 按目标周过滤。
+	// （逐周计数已用 HAR 原文夹具锁进 coursetable_har_test.go）
+	// 反之显式传 zc=<周>时教务返回的内容不可靠，是"课表只有第一周有数据"的可疑来源。
 	query := url.Values{}
-	query.Add("zc", strconv.Itoa(week))
+	query.Add("zc", "")
 	query.Add("xnxq01id", term)
 
 	sep := "?"
@@ -288,28 +297,12 @@ func (s *courseService) triggerAsyncReconciliation(uid int) {
 	}()
 }
 
-// getCookiesOrLogin 获取缓存的 cookies 或登录
+// getCookiesOrLogin 获取**可用**的会话 cookies：缓存命中的会先验活，失效则重新登录。
+// 统一实现见 internal/service/session_alive.go（成绩 / 课表 / 考试共用同一套判定）。
+// 旧实现只判断"缓存里有没有 cookie"，于是教务端已单方面失效的会话会被反复复用，
+// 拿到"未登录"响应后解析为空课表，表现为课表只有第一周/直接空白。
 func (s *courseService) getCookiesOrLogin(ctx context.Context, uid int, sid, spwd string) ([]*http.Cookie, error) {
-	cookies, err := s.sessionService.GetCachedCookies(ctx, uid)
-	if err != nil {
-		return nil, common.NewAppError(common.CodeCacheError, "缓存错误")
-	}
-
-	if len(cookies) > 0 {
-		return cookies, nil
-	}
-
-	if err := s.sessionService.LoginAndCache(ctx, uid, sid, spwd); err != nil {
-		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
-		return nil, common.ToBindExpired(err)
-	}
-
-	cookies, err = s.sessionService.GetCachedCookies(ctx, uid)
-	if err != nil || len(cookies) == 0 {
-		return nil, common.NewAppError(common.CodeJwcLoginFailed, "获取会话失败")
-	}
-
-	return cookies, nil
+	return service.EnsureSessionAlive(ctx, s.sessionService, s.crawlerService, uid, sid, spwd, s.probeURL)
 }
 
 // parseCourseTableFromHTML 解析课程表 HTML
@@ -329,6 +322,18 @@ func (s *courseService) parseCourseTableFromHTML(r io.Reader, requestWeek int) (
 	// 不再硬校验标题：新版标题已由"学期理论课表"改为"个人课表信息"。
 	if isLoginOrErrorPage(doc) {
 		return nil, common.NewAppError(common.CodeJwcParseFailed, "页面错误")
+	}
+
+	// 护栏：响应必须含课表结构，否则算"取数失败"而不是"这周没课"。
+	// 实测（2026-09-18 HAR）：不带 viweType 请求 xskb_list.do 会返回「tab 壳」——
+	// 页面里只有 iframe、没有 qz-weeklyTable、也没有课程条目。
+	// 旧实现对此返回「空课表 + nil error」，上游据此把空白结果写进 Redis 缓存 1 小时，
+	// 于是教务恢复正常后课表依然空白 —— 这是"课表偶发空白且持续"的直接成因。
+	// 注意：合法空周（如第 9 周确实无课）仍带 qz-weeklyTable 网格，不受此护栏影响。
+	hasQZTable := doc.Find("table.qz-weeklyTable").Length() > 0
+	hasLegacyTable := doc.Find("#kbtable").Length() > 0
+	if !hasQZTable && !hasLegacyTable {
+		return nil, common.NewAppError(common.CodeJwcParseFailed, "响应不含课表结构（会话可能已失效或教务接口异常）")
 	}
 
 	// 解析当前周次

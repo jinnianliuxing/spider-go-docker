@@ -13,6 +13,7 @@ import (
 	"spider-go/internal/common"
 	"spider-go/internal/service"
 	"spider-go/internal/shared"
+	"strings"
 	"sync"
 	"time"
 
@@ -51,6 +52,11 @@ type Service interface {
 	BindJwcStartMFA(ctx context.Context, uid int, sid, spwd, ipAddress, userAgent string) (challengeID string, maskedPhone string, err error)
 	// BindJwcCompleteMFA 提交短信验证码，完成绑定
 	BindJwcCompleteMFA(ctx context.Context, challengeID, code string) error
+	// SessionMFASend 查询/会话场景命中 MFA（40011）时触发短信验证码。
+	// spwd 为空则自动取数据库里已保存的教务密码，因此前端可以"零输入"完成发送。
+	SessionMFASend(ctx context.Context, uid int, spwd, ipAddress, userAgent string) (challengeID string, maskedPhone string, err error)
+	// SessionMFAVerify 提交短信验证码，完成教务系统登录并缓存会话（不修改绑定关系）
+	SessionMFAVerify(ctx context.Context, challengeID, code string) error
 	// CheckIsBind 检查是否绑定教务处
 	CheckIsBind(ctx context.Context, uid int) (bool, error)
 	// GetBindStatus 获取绑定状态（包含绑定次数信息）
@@ -78,6 +84,17 @@ type pendingBindMFA struct {
 	expiresAt time.Time
 }
 
+// pendingSessionMFA 查询/会话场景（非绑定）走短信验证码流程时的临时上下文（仅内存，不落库）。
+// spwd 只在"用户本次重新输入了密码且与库里不同"时才记录，验证通过后回写数据库，
+// 这样下次命 MFA 就能完全自动发送，不需要用户再输一次。
+type pendingSessionMFA struct {
+	uid       int
+	spwd      string
+	ipAddress string
+	userAgent string
+	expiresAt time.Time
+}
+
 // userService 用户服务实现
 type userService struct {
 	repo            Repository
@@ -95,6 +112,9 @@ type userService struct {
 
 	bindMFAMu sync.Mutex
 	bindMFA   map[string]*pendingBindMFA // challengeID -> 待完成的绑定请求
+
+	sessionMFAMu sync.Mutex
+	sessionMFA   map[string]*pendingSessionMFA // challengeID -> 待完成的会话验证请求
 }
 
 // NewService 创建用户服务
@@ -125,6 +145,7 @@ func NewService(
 		appsecret:       appsecret,
 		frontendBaseURL: frontendBaseURL,
 		bindMFA:         make(map[string]*pendingBindMFA),
+		sessionMFA:      make(map[string]*pendingSessionMFA),
 	}
 }
 
@@ -580,6 +601,107 @@ func (s *userService) BindJwcCompleteMFA(ctx context.Context, challengeID, code 
 	delete(s.bindMFA, challengeID)
 	s.bindMFAMu.Unlock()
 
+	return nil
+}
+
+// cleanExpiredSessionMFA 清理过期的会话 MFA 上下文，调用前必须已持有 sessionMFAMu 锁
+func (s *userService) cleanExpiredSessionMFA() {
+	now := time.Now()
+	for id, p := range s.sessionMFA {
+		if now.After(p.expiresAt) {
+			delete(s.sessionMFA, id)
+		}
+	}
+}
+
+// SessionMFASend 查询/会话场景命中 40011（教务系统要求多因素认证）时调用。
+// 与 BindJwcStartMFA 的区别：这里不校验、不修改绑定关系，只负责把短信验证码发出去。
+// spwd 为空时自动使用数据库里已保存的教务密码 —— 前端因此可以完全自动地发起验证，
+// 用户只需要输入收到的短信验证码，不用再输一遍密码。
+func (s *userService) SessionMFASend(ctx context.Context, uid int, spwd, ipAddress, userAgent string) (string, string, error) {
+	user, err := s.repo.FindByID(ctx, uid)
+	if err != nil {
+		return "", "", common.NewAppError(common.CodeUserNotFound, "获取用户信息失败")
+	}
+	if user.Sid == "" {
+		return "", "", common.NewAppError(common.CodeJwcNotBound, "尚未绑定教务系统，请先绑定学号")
+	}
+
+	spwd = strings.TrimSpace(spwd)
+	autoUsed := false
+	if spwd == "" {
+		if user.Spwd == "" {
+			return "", "", common.NewAppError(common.CodeInvalidParams, "请输入教务系统密码")
+		}
+		spwd = user.Spwd
+		autoUsed = true
+	}
+
+	// 与 BindJwc 保持一致的密码强度校验（i中南林 APP 账号密码）
+	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(spwd)
+	hasLower := regexp.MustCompile(`[a-z]`).MatchString(spwd)
+	hasDigit := regexp.MustCompile(`\d`).MatchString(spwd)
+	if !(hasUpper && hasLower && hasDigit) {
+		return "", "", common.NewAppError(common.CodeInvalidParams, "教务系统密码需包含大写字母、小写字母和数字（请使用i中南林APP账号密码）")
+	}
+
+	challengeID, maskedPhone, err := s.sessionService.StartPhoneMFALogin(ctx, uid, user.Sid, spwd)
+	if err != nil {
+		log.Printf("[SessionMFASend] 发起短信验证失败：uid=%d, autoUsed=%v, err=%v", uid, autoUsed, err)
+		if appErr, ok := err.(*common.AppError); ok {
+			return "", "", appErr
+		}
+		return "", "", common.NewAppError(common.CodeJwcLoginFailed, "发起短信验证失败")
+	}
+
+	s.sessionMFAMu.Lock()
+	s.cleanExpiredSessionMFA()
+	newPwd := ""
+	if !autoUsed && spwd != user.Spwd {
+		// 用户本次输入了与库里不同的密码：验证通过后回写，方便下次全自动发送
+		newPwd = spwd
+	}
+	s.sessionMFA[challengeID] = &pendingSessionMFA{
+		uid:       uid,
+		spwd:      newPwd,
+		ipAddress: ipAddress,
+		userAgent: userAgent,
+		expiresAt: time.Now().Add(5 * time.Minute),
+	}
+	s.sessionMFAMu.Unlock()
+
+	return challengeID, maskedPhone, nil
+}
+
+// SessionMFAVerify 提交短信验证码。
+// 校验通过后 sessionService.CompletePhoneMFALogin 会完成完整登录并把会话 Cookie 写入缓存，
+// 前端随后重试原来的查询即可正常返回数据。
+// 这里刻意不调用 InvalidateSession —— 刚拿到的会话必须留着，否则重试时又得重新登录一次。
+func (s *userService) SessionMFAVerify(ctx context.Context, challengeID, code string) error {
+	s.sessionMFAMu.Lock()
+	pending, hasPending := s.sessionMFA[challengeID]
+	if hasPending && time.Now().After(pending.expiresAt) {
+		delete(s.sessionMFA, challengeID)
+		pending, hasPending = nil, false
+	}
+	s.sessionMFAMu.Unlock()
+
+	if err := s.sessionService.CompletePhoneMFALogin(ctx, challengeID, code); err != nil {
+		// 验证码错误等情况允许在有效期内重试，不清理上下文
+		return err
+	}
+
+	s.sessionMFAMu.Lock()
+	delete(s.sessionMFA, challengeID)
+	s.sessionMFAMu.Unlock()
+
+	if hasPending && pending.spwd != "" {
+		if err := s.repo.(*repository).db.WithContext(ctx).Model(&User{}).Where("uid = ?", pending.uid).Update("spwd", pending.spwd).Error; err != nil {
+			log.Printf("[SessionMFAVerify] 回写教务密码失败：uid=%d, err=%v", pending.uid, err)
+		} else {
+			log.Printf("[SessionMFAVerify] 已更新教务密码：uid=%d", pending.uid)
+		}
+	}
 	return nil
 }
 

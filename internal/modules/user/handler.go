@@ -2,6 +2,7 @@ package user
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"spider-go/internal/common"
 
@@ -49,6 +50,8 @@ func (h *Handler) RegisterRoutes(public *gin.RouterGroup, authenticated *gin.Rou
 	authenticated.POST("/unbind", h.UnbindJwc)                 // 注销教务系统绑定
 	authenticated.POST("/bind/mfa/send", h.BindJwcMFASend)     // 绑定教务系统-命中短信验证码MFA时调用，触发发送验证码
 	authenticated.POST("/bind/mfa/verify", h.BindJwcMFAVerify) // 绑定教务系统-提交短信验证码，完成绑定
+	authenticated.POST("/mfa/send", h.SessionMFASend)          // 查询/会话命中多因素认证(40011)时触发短信验证码（spwd 可省略，用已存密码）
+	authenticated.POST("/mfa/verify", h.SessionMFAVerify)      // 提交短信验证码，完成教务登录并缓存会话（不改绑定）
 	authenticated.GET("/is-bind", h.CheckIsBind)               // 检查绑定状态
 	authenticated.GET("/bind-status", h.GetBindStatus)         // 获取绑定状态（包含绑定次数信息）
 	authenticated.POST("/wechat/bind", h.WeChatBind)           // 老用户绑定微信
@@ -416,6 +419,93 @@ func (h *Handler) BindJwcMFAVerify(c *gin.Context) {
 	}
 
 	common.Success(c, gin.H{"message": "绑定成功"})
+}
+
+// SessionMFASendRequest 查询/会话场景触发短信验证码请求
+// Spwd 可省略：省略时后端自动使用数据库里已保存的教务密码
+type SessionMFASendRequest struct {
+	Spwd string `json:"spwd"`
+}
+
+// SessionMFAVerifyRequest 查询/会话场景提交短信验证码请求
+type SessionMFAVerifyRequest struct {
+	ChallengeID string `json:"challenge_id" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+}
+
+// SessionMFASend 在任意查询页面命中 40011（教务系统要求多因素认证，如服务器/异地 IP 登录）时，
+// 前端调用本接口触发短信验证码。spwd 不传则自动使用已保存的教务密码，
+// 用户因此只需输入收到的短信码，不必再输一次密码。
+// @Summary 教务会话-发送短信验证码（多因素认证）
+// @Tags User
+// @Accept JSON
+// @Produce JSON
+// @Param request body SessionMFASendRequest false "可省略；不传则用已保存的教务密码"
+// @Success 200 {object} gin.H
+// @Router /user/mfa/send [post]
+func (h *Handler) SessionMFASend(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+
+	var req SessionMFASendRequest
+	// 请求体允许为空（前端自动发送时就不带密码）
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+		common.Error(c, common.CodeInvalidParams, err.Error())
+		return
+	}
+
+	challengeID, maskedPhone, err := h.service.SessionMFASend(c.Request.Context(), uid.(int), req.Spwd, c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, err.Error())
+		}
+		return
+	}
+
+	common.Success(c, gin.H{
+		"challenge_id": challengeID,
+		"masked_phone": maskedPhone,
+		"message":      "验证码已发送",
+	})
+}
+
+// SessionMFAVerify 提交短信验证码，完成教务系统登录并缓存会话。
+// 与 /user/bind/mfa/verify 的区别：不修改绑定关系、也不清除刚拿到的会话缓存，
+// 校验通过后前端只要重试原来的查询即可正常返回数据。
+// @Summary 教务会话-提交短信验证码（多因素认证）
+// @Tags User
+// @Accept JSON
+// @Produce JSON
+// @Param request body SessionMFAVerifyRequest true "提交验证码请求"
+// @Success 200 {object} gin.H
+// @Router /user/mfa/verify [post]
+func (h *Handler) SessionMFAVerify(c *gin.Context) {
+	if _, exists := c.Get("uid"); !exists {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+
+	var req SessionMFAVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Error(c, common.CodeInvalidParams, err.Error())
+		return
+	}
+
+	if err := h.service.SessionMFAVerify(c.Request.Context(), req.ChallengeID, req.Code); err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, err.Error())
+		}
+		return
+	}
+
+	common.Success(c, gin.H{"message": "验证成功"})
 }
 
 // GetBindStatus 获取绑定状态

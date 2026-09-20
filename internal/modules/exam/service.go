@@ -50,6 +50,7 @@ type examService struct {
 	examRepo              ExamRepository
 	reconciliationTrigger ReconciliationTrigger
 	examURL               string
+	probeURL              string // 会话探测地址（用成绩数据接口，失效信号最稳定）
 }
 
 // NewService 创建考试服务
@@ -59,6 +60,7 @@ func NewService(
 	crawlerService service.CrawlerService,
 	userDataCache cache.UserDataCache,
 	examURL string,
+	probeURL string,
 ) Service {
 	return &examService{
 		userQuery:      userQuery,
@@ -66,6 +68,7 @@ func NewService(
 		crawlerService: crawlerService,
 		userDataCache:  userDataCache,
 		examURL:        examURL,
+		probeURL:       probeURL,
 	}
 }
 
@@ -241,9 +244,22 @@ func (s *examService) fetchExamsPage(ctx context.Context, cookies []*http.Cookie
 			continue
 		}
 
+		// 会话失效必须立即上报，不能继续换 method 重试：
+		// 教务在登录态无效时统一返回 {"flag1":2,"msgContent":"请先登录系统"}，
+		// 旧实现把它当成"是 JSON 但解析不出数据"而 continue，最终错误码被覆盖为
+		// "请求失败"——既不清会话也不提示重登，用户只看到考试安排为空。
+		if !service.SessionLooksValid(string(raw)) {
+			return nil, 0, false, common.NewAppError(common.CodeJwcSessionExpired,
+				"教务系统登录状态已失效，请重新输入教务密码")
+		}
+
 		if looksLikeJSONExam(raw) {
 			exams, total, jerr := parseExamsJSONBytes(raw)
 			if jerr != nil {
+				// 认证类错误同样不可吞掉
+				if s.isAuthenticationError(jerr) {
+					return nil, 0, false, jerr
+				}
 				continue
 			}
 			return exams, total, true, nil
@@ -329,28 +345,10 @@ func (s *examService) triggerAsyncReconciliation(uid int) {
 	}()
 }
 
-// getCookiesOrLogin 获取缓存的 cookies 或登录
+// getCookiesOrLogin 获取**可用**的会话 cookies：缓存命中的会先验活，失效则重新登录。
+// 统一实现见 internal/service/session_alive.go（成绩 / 课表 / 考试共用同一套判定）。
 func (s *examService) getCookiesOrLogin(ctx context.Context, uid int, sid, spwd string) ([]*http.Cookie, error) {
-	cookies, err := s.sessionService.GetCachedCookies(ctx, uid)
-	if err != nil {
-		return nil, common.NewAppError(common.CodeCacheError, "缓存错误")
-	}
-
-	if len(cookies) > 0 {
-		return cookies, nil
-	}
-
-	if err := s.sessionService.LoginAndCache(ctx, uid, sid, spwd); err != nil {
-		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
-		return nil, common.ToBindExpired(err)
-	}
-
-	cookies, err = s.sessionService.GetCachedCookies(ctx, uid)
-	if err != nil || len(cookies) == 0 {
-		return nil, common.NewAppError(common.CodeJwcLoginFailed, "获取会话失败")
-	}
-
-	return cookies, nil
+	return service.EnsureSessionAlive(ctx, s.sessionService, s.crawlerService, uid, sid, spwd, s.probeURL)
 }
 
 // parseExamArrangementFromHTML 解析考试安排 HTML

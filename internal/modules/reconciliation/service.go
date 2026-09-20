@@ -1773,11 +1773,11 @@ func (s *service) mapGradeToScoreForBasic(scoreText string) float64 {
 		return 50.0
 	case "及格", "合格":
 		return 60.0
-	case "中":
+	case "中", "中等":
 		return 70.0
-	case "良":
+	case "良", "良好":
 		return 80.0
-	case "优":
+	case "优", "优秀":
 		return 90.0
 	default:
 		if v, ok := s.parseNumeric(scoreText); ok {
@@ -1809,11 +1809,11 @@ func (s *service) handelGp(scoreText string) float64 {
 		return 0
 	case "及格", "合格":
 		return 1.0
-	case "中":
+	case "中", "中等":
 		return 2.0
-	case "良":
+	case "良", "良好":
 		return 3.0
-	case "优":
+	case "优", "优秀":
 		return 4.0
 	}
 
@@ -1822,12 +1822,13 @@ func (s *service) handelGp(scoreText string) float64 {
 		return 0
 	}
 
-	raw := (score - 50.0) / 10.0
-	raw = s.round3(raw)
-	if raw <= 0.1 {
+	// 《中南林业科技大学本科学生成绩记载说明》：百分制 ≥60 时绩点 = (分数-60)/10+1；
+	// 不足 60 分一律记 0 绩点（不按公式外推）。
+	// 原实现写成 raw=(score-50)/10 且只拦 raw<=0.1（即 ≤51 分），与说明不符。
+	if score < 60.0 {
 		return 0
 	}
-	return raw
+	return s.round3((score-60.0)/10.0 + 1.0)
 }
 
 // round3 四舍五入保留3位小数

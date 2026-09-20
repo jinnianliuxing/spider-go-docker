@@ -701,9 +701,22 @@ func (s *gradeService) fetchLevelGradesPage(ctx context.Context, cookies []*http
 			continue
 		}
 
+		// 会话失效必须立即上报，不能继续换 method 重试：
+		// 教务在登录态无效时统一返回 {"flag1":2,"msgContent":"请先登录系统"}，
+		// 旧实现把它当成"是 JSON 但解析不出数据"而 continue，最终错误码被覆盖为
+		// "接口请求失败"——既不清会话也不提示重登，用户只看到"暂无数据"。
+		if !service.SessionLooksValid(string(raw)) {
+			return nil, 0, false, common.NewAppError(common.CodeJwcSessionExpired,
+				"教务系统登录状态已失效，请重新输入教务密码")
+		}
+
 		if looksLikeJSON(raw) {
 			levelGrades, total, jerr := parseLevelGradesJSONBytes(raw)
 			if jerr != nil {
+				// 认证类错误同样不可吞掉
+				if s.isAuthenticationError(jerr) {
+					return nil, 0, false, jerr
+				}
 				continue
 			}
 			return levelGrades, total, true, nil
@@ -846,7 +859,7 @@ func (s *gradeService) ExportTranscript(ctx context.Context, uid int, req Export
 	// 缓存会话则可能"看起来未过期"但教务端已单方面失效
 	// （典型场景：服务重启后 Redis 中的陈旧会话被复用），
 	// 直接提交会被踢回登录页，前端却收到"已受理"，造成静默失败。
-	if fromCache && !s.probeSessionAlive(ctx, cookies) {
+	if fromCache && !s.probeSessionAlive(ctx, uid, cookies) {
 		log.Printf("[transcript] uid=%d 缓存会话已失效，强制重新登录", uid)
 		if invErr := s.sessionService.InvalidateSession(ctx, uid); invErr == nil {
 			cookies, err = s.getCookiesOrLogin(ctx, uid, user.Sid, user.Spwd)
@@ -855,7 +868,7 @@ func (s *gradeService) ExportTranscript(ctx context.Context, uid int, req Export
 			}
 		}
 		// 重登后仍不可用，说明教务系统侧异常，避免给出"已提交"的假成功
-		if !s.probeSessionAlive(ctx, cookies) {
+		if !s.probeSessionAlive(ctx, uid, cookies) {
 			return nil, common.NewAppError(common.CodeJwcRequestFailed,
 				"教务系统登录状态异常，请稍后重试；若持续失败请在成绩页重新查询一次以刷新登录状态")
 		}
@@ -914,7 +927,7 @@ func (s *gradeService) runTranscriptExport(uid int, mail string, form url.Values
 
 	text := string(raw)
 	// 登录态失效：提交前的预检已尽量拦截，此处兜底记录便于排查
-	if isSessionExpiredDoc(text) {
+	if !service.SessionLooksValid(text) {
 		log.Printf("[transcript] uid=%d mail=%s 教务会话已失效，需重新绑定", uid, mail)
 		return
 	}
@@ -923,79 +936,22 @@ func (s *gradeService) runTranscriptExport(uid int, mail string, form url.Values
 
 // probeSessionAlive 用给定 cookies 探测教务会话是否真的有效。
 //
-// 背景：Redis 中的会话缓存 TTL 为 1 小时，但教务端会话寿命可能更短，
-// 且服务重启后 Redis 可能保留旧会话（教务端已单方面失效）。
-// 此时直接提交导出请求会被踢回登录页，前端却收到"已受理"，
-// 造成用户永远收不到邮件的静默失败。因此在关键操作前主动探测一次。
-//
-// 判据（实测确定，不依赖页面文案）：
-// 强智教务系统的数据接口在登录态无效时**固定返回紧凑 JSON**
-//
-//	{"flag1":2,"msgContent":"请先登录系统"}
-//
-// 会话有效时同一接口返回成绩数据（flag1 为 1 或直接是数据列表），
-// 绝不会出现 "请先登录系统"。因此只需在响应中匹配该文案即可可靠判定。
-// 注意：教务端对无效 cookie 也会**重新下发** bzb_jsxsd（匿名会话），
-// 所以"cookie 值是否变化"是伪判据，不可使用。
-func (s *gradeService) probeSessionAlive(ctx context.Context, cookies []*http.Cookie) bool {
-	if len(cookies) == 0 {
-		return false
-	}
-
-	probeCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	// 探测成绩查询接口：响应体极小，且失效信号稳定。
-	// 该接口需要 Referer（由 refererFor 自动补齐）与 X-Requested-With（crawler 已内置）。
-	probeURL := s.gradeURL + "?kksj=&kctype=&kcsxdm=&kcxz=&kcmc=&xsfs=all"
-	body, err := s.crawlerService.FetchWithCookies(probeCtx, "GET", probeURL, cookies, nil)
-	if err != nil {
-		// 请求失败无法判定会话状态，交给后续流程处理（避免误判导致强制重登）
-		return true
-	}
-	defer body.Close()
-
-	raw, readErr := io.ReadAll(body)
-	if readErr != nil {
-		return true
-	}
-	return sessionLooksValid(string(raw))
+// 判定与自愈的统一实现见 internal/service/session_alive.go（成绩 / 课表 / 考试共用），
+// 这里只提供成绩模块自己的探测地址。
+func (s *gradeService) probeSessionAlive(ctx context.Context, uid int, cookies []*http.Cookie) bool {
+	return service.ProbeSessionAlive(ctx, uid, s.crawlerService, s.gradeProbeURL(), cookies)
 }
 
-// sessionLooksValid 判断探测响应是否表明会话有效。
-func sessionLooksValid(text string) bool {
-	if text == "" {
-		return true
+// gradeProbeURL 会话探测用的成绩查询接口地址。
+// 该接口响应体小且失效信号稳定——登录态无效时固定返回 {"flag1":2,"msgContent":"请先登录系统"}，
+// 因此是整套系统里最可靠的探测点。请求需要 Referer（refererFor 自动补齐）
+// 与 X-Requested-With（crawler 已内置），故必须经 CrawlerService 发出。
+func (s *gradeService) gradeProbeURL() string {
+	sep := "?"
+	if strings.Contains(s.gradeURL, "?") {
+		sep = "&"
 	}
-	// 强智教务系统未登录时的标准响应（实测，最可靠判据）：
-	//   {"flag1":2,"msgContent":"请先登录系统"}
-	// 只匹配明确文案，不用 flag1 数值——避免其他接口正常返回 flag1:2 时被误踢。
-	if strings.Contains(text, "请先登录系统") {
-		return false
-	}
-	// 明确的未登录/超时文案
-	if isSessionExpiredDoc(text) {
-		return false
-	}
-	// 登录页特征：密码输入框
-	if strings.Contains(text, "name=\"password\"") || strings.Contains(text, "id=\"password\"") {
-		return false
-	}
-	return true
-}
-
-// isSessionExpiredDoc 判断响应正文是否因登录态失效被踢回登录页
-func isSessionExpiredDoc(text string) bool {
-	return strings.Contains(text, "用户没有登录") ||
-		strings.Contains(text, "请重新登录") ||
-		strings.Contains(text, "请先登录") ||
-		strings.Contains(text, "正在登录") ||
-		strings.Contains(text, "用户未登录") ||
-		strings.Contains(text, "登录超时") ||
-		strings.Contains(text, "会话已过期") ||
-		strings.Contains(text, "会话超时") ||
-		strings.Contains(text, "userPassword") ||
-		strings.Contains(text, "LoginToXk")
+	return s.gradeURL + sep + "kksj=&kctype=&kcsxdm=&kcxz=&kcmc=&xsfs=all"
 }
 
 // GetUserGradeMajorClass 获取用户年级、学院、专业、班级信息
@@ -1130,43 +1086,17 @@ func (s *gradeService) parseStudentInfoFromHTML(r io.Reader, sid string) (*UserD
 	}, nil
 }
 
-// getCookiesOrLogin 获取缓存的 cookies 或登录
+// getCookiesOrLogin 获取**可用**的会话 cookies：缓存命中的会先验活，失效则重新登录。
+// 统一实现见 internal/service/session_alive.go（成绩 / 课表 / 考试共用同一套判定）。
 func (s *gradeService) getCookiesOrLogin(ctx context.Context, uid int, sid, spwd string) ([]*http.Cookie, error) {
-	cookies, _, err := s.getCookiesOrLoginEx(ctx, uid, sid, spwd)
-	return cookies, err
+	return service.EnsureSessionAlive(ctx, s.sessionService, s.crawlerService, uid, sid, spwd, s.gradeProbeURL())
 }
 
 // getCookiesOrLoginEx 与 getCookiesOrLogin 相同，但额外返回"cookies 是否来自缓存"。
 // 调用方可用该标记判断是否需要做会话有效性预检——缓存命中的会话可能是陈旧的，
 // 而新登录得到的会话必然新鲜。
 func (s *gradeService) getCookiesOrLoginEx(ctx context.Context, uid int, sid, spwd string) ([]*http.Cookie, bool, error) {
-	cookies, err := s.sessionService.GetCachedCookies(ctx, uid)
-	if err != nil {
-		return nil, false, common.NewAppError(common.CodeCacheError, "缓存错误")
-	}
-
-	if len(cookies) > 0 {
-		return cookies, true, nil
-	}
-
-	// 尝试登录教务系统
-	if err := s.sessionService.LoginAndCache(ctx, uid, sid, spwd); err != nil {
-		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
-		return nil, false, common.ToBindExpired(err)
-	}
-
-	// 登录成功后从缓存获取 cookies
-	cookies, err = s.sessionService.GetCachedCookies(ctx, uid)
-	if err != nil {
-		return nil, false, common.NewAppError(common.CodeCacheError, "读取缓存失败")
-	}
-	if len(cookies) == 0 {
-		// 登录声称成功了但缓存没有 cookies，
-		// 说明教务系统返回了 302 但目标系统不可达（例如校园网外访问教务系统）
-		return nil, false, common.NewAppError(common.CodeJwcRequestFailed, "教务系统网络连接异常，请稍后重试")
-	}
-
-	return cookies, false, nil
+	return service.GetCookiesOrLoginEx(ctx, s.sessionService, uid, sid, spwd)
 }
 
 // parseGradesFromHTML 解析成绩 HTML
@@ -1260,6 +1190,10 @@ type cjcxResp struct {
 	Msg   string      `json:"msg"`
 	Count json.Number `json:"count"`
 	Data  []cjcxRow   `json:"data"`
+	// 会话失效时教务返回 {"flag1":2,"msgContent":"请先登录系统"}，
+	// 正常的数据响应里不存在这两个字段，仅用于识别会话失效
+	Flag1      json.Number `json:"flag1"`
+	MsgContent string      `json:"msgContent"`
 }
 
 // cjcxRow 成绩行。字段统一用 json.RawMessage 接收，兼容字符串 / 数字两种类型
@@ -1382,9 +1316,22 @@ func (s *gradeService) fetchGradesPage(ctx context.Context, cookies []*http.Cook
 			continue
 		}
 
+		// 会话失效必须立即上报：教务在登录态无效时统一返回
+		// {"flag1":2,"msgContent":"请先登录系统"}。旧实现把它当成"成绩列表为空"，
+		// 最终以上层的 CodeJwcNotEvaluated 暴露，用户看到的是误导性的
+		// "请先完成教学评价"；同时坏 cookie 不会被清除，故障持续到 TTL 到期。
+		if !service.SessionLooksValid(string(raw)) {
+			return nil, 0, false, common.NewAppError(common.CodeJwcSessionExpired,
+				"教务系统登录状态已失效，请重新输入教务密码")
+		}
+
 		if looksLikeJSON(raw) {
 			grades, total, jerr := parseGradesJSONBytes(raw)
 			if jerr != nil {
+				// 认证类错误同样不可吞掉
+				if s.isAuthenticationError(jerr) {
+					return nil, 0, false, jerr
+				}
 				continue
 			}
 			return grades, total, true, nil
@@ -1410,6 +1357,18 @@ func parseGradesJSONBytes(raw []byte) ([]Grade, int, error) {
 	var resp cjcxResp
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, 0, err
+	}
+
+	// 会话失效识别：登录态无效时教务返回 {"flag1":2,"msgContent":"请先登录系统"}。
+	// 该响应没有 code / data，若按"成功但无数据"处理，最终会以上层的
+	// CodeJwcNotEvaluated 暴露，用户看到"请先完成教学评价"这一误导提示。
+	// 判据用 flag1==2 且无 data：正常响应没有 flag1 字段，故不会误判。
+	if f, err := resp.Flag1.Int64(); err == nil && f == 2 && len(resp.Data) == 0 {
+		msg := strings.TrimSpace(resp.MsgContent)
+		if msg == "" {
+			msg = "教务系统登录状态已失效，请重新输入教务密码"
+		}
+		return nil, 0, common.NewAppError(common.CodeJwcSessionExpired, msg)
 	}
 
 	// code 兼容：0 / 200 / 缺省 均视为成功
@@ -1469,12 +1428,16 @@ func parseGradesJSONBytes(raw []byte) ([]Grade, int, error) {
 	return grades, total, nil
 }
 
-// levelGradeResp layui 分页响应包装
+// levelGradeResp layui 分页响应包装。
+// flag1 / msgContent 是教务在**登录态失效**时返回的字段（{"flag1":2,"msgContent":"请先登录系统"}），
+// 正常的数据响应里不存在这两个字段，仅用于识别会话失效。
 type levelGradeResp struct {
-	Code  json.RawMessage `json:"code"`
-	Msg   string          `json:"msg"`
-	Count json.RawMessage `json:"count"`
-	Data  []levelGradeRow `json:"data"`
+	Code       json.RawMessage `json:"code"`
+	Msg        string          `json:"msg"`
+	Count      json.RawMessage `json:"count"`
+	Data       []levelGradeRow `json:"data"`
+	Flag1      json.RawMessage `json:"flag1"`
+	MsgContent string          `json:"msgContent"`
 }
 
 // levelGradeRow 等级成绩行。字段统一用 json.RawMessage 兼容字符串 / 数字两种类型
@@ -1498,6 +1461,18 @@ func parseLevelGradesJSONBytes(raw []byte) ([]LevelGrade, int, error) {
 	var resp levelGradeResp
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, 0, err
+	}
+
+	// 会话失效识别：登录态无效时教务返回 {"flag1":2,"msgContent":"请先登录系统"}。
+	// 该响应没有 code / data，若按"成功但无数据"处理，前端只会看到"暂无数据"，
+	// 且坏 cookie 不会被清除，故障会持续到 Redis TTL 到期。
+	// 判据用 flag1==2 且无 data：正常响应没有 flag1 字段，故不会误判。
+	if int(jsonFloat(resp.Flag1)) == 2 && len(resp.Data) == 0 {
+		msg := strings.TrimSpace(resp.MsgContent)
+		if msg == "" {
+			msg = "教务系统登录状态已失效，请重新输入教务密码"
+		}
+		return nil, 0, common.NewAppError(common.CodeJwcSessionExpired, msg)
 	}
 
 	// code 兼容：0 / 200 / 缺省 均视为成功
@@ -1755,11 +1730,11 @@ func mapGradeToScoreForBasic(scoreText string) float64 {
 		return 50.0
 	case "及格", "合格":
 		return 60.0
-	case "中":
+	case "中", "中等":
 		return 70.0
-	case "良":
+	case "良", "良好":
 		return 80.0
-	case "优":
+	case "优", "优秀":
 		return 90.0
 	default:
 		if v, ok := parseNumeric(scoreText); ok {
@@ -1775,11 +1750,11 @@ func handelGp(scoreText string) float64 {
 		return 0
 	case "及格", "合格":
 		return 1.0
-	case "中":
+	case "中", "中等":
 		return 2.0
-	case "良":
+	case "良", "良好":
 		return 3.0
-	case "优":
+	case "优", "优秀":
 		return 4.0
 	}
 
@@ -1789,12 +1764,14 @@ func handelGp(scoreText string) float64 {
 		return 0
 	}
 
-	raw := (score - 50.0) / 10.0
-	raw = round3(raw)
-	if raw <= 0.1 {
+	// 《中南林业科技大学本科学生成绩记载说明》：百分制 ≥60 时绩点 = (分数-60)/10+1；
+	// 不足 60 分一律记 0 绩点（不按公式外推）。
+	// 原实现写成 raw=(score-50)/10 且只拦 raw<=0.1（即 ≤51 分），会让 52~59 分
+	// 拿到 0.2~0.9 的非零绩点，与说明不符。
+	if score < 60.0 {
 		return 0
 	}
-	return raw
+	return round3((score-60.0)/10.0 + 1.0)
 }
 
 func round3(v float64) float64 {
