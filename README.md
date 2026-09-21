@@ -4,10 +4,6 @@
 
 CSUFT Educational Administration Crawler & Management Platform
 
-## 原项目与作者
-
-本项目基于 [StarryKira/spider-go](https://github.com/StarryKira/spider-go) 修改，原作者为 [StarryKira](https://github.com/StarryKira)。后端主体、接口设计和核心教务查询能力来自原项目。
-
 ## 目录
 
 - [功能特性](#功能特性)

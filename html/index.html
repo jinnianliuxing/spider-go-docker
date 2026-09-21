@@ -12,6 +12,7 @@
            纸 paper / 松墨 pine ink / 朱砂 seal — a transcript, not a dashboard
            ============================================================ */
         :root {
+            color-scheme: light;
             --bg: #F4F6FA;
             --card-bg: #FFFFFF;
             --text: #1F2A44;
@@ -27,8 +28,6 @@
             --accent-contrast: #FFFFFF;
             --stat-bg: #EFF4FB;
             --course-bg: #F6F9FD;
-            --course-item-bg: #E7EFF9;
-            --course-item-text: #33415E;
             --hover-bg: #F3F7FC;
             --th-bg: #EFF3FA;
             --tab-bg: #E5EBF5;
@@ -52,64 +51,119 @@
             --chart-b: #5B8FD4;
             --shadow-sm: 0 1px 2px rgba(31,48,36,0.07);
             --shadow-md: 0 10px 26px -12px rgba(31,48,36,0.22);
+            /* 功能性 token：浅色一律取改造前的字面值（浅色外观零变化），深色同族改写 */
+            --dot: rgba(47,92,158,0.05);
+            --scrim: rgba(20,32,22,0.45);
+            --seal-solid: #BC4A2F;
+            --seal-on: #FFFFFF;
+            --leaf-solid: #2F8F5B;
+            --leaf-on: #FFFFFF;
+            --alert-bg-a: #FFF4D6;
+            --alert-bg-b: #FFE7AE;
+            --alert-fg: #7A4A00;
+            --alert-line: #F0D48A;
+            --alert-glow: rgba(199,126,31,0.18);
+            --alert-warn-bg-a: #FFE8D1;
+            --alert-warn-bg-b: #FFCFA3;
+            --alert-warn-fg: #8A3B00;
+            --alert-warn-line: #F0B27A;
+            --alert-warn-glow: rgba(192,90,20,0.25);
+            --alert-dead-a: #C03A28;
+            --alert-dead-b: #A82E1E;
+            --alert-dead-fg: #FFF9EC;
+            --course-header-bg: #2F5C9E;
+            --course-header-fg: #FFFFFF;
             --nav-h: 52px;   /* 顶部页签条总高（50 内容 + 2 边框），供吸顶元素避让 */
         }
+        /* ---- 深色主题「极简黑 Minimal Black」：chrome 纯黑白灰，颜色只用来表达含义 ----
+           四条规矩：① 底色是中性近黑（无色相：不暖、不蓝）；② `--accent` 是近白，
+           主按钮=白底黑字，结构线/页签/焦点环/表头一律走白 —— chrome 里唯一的彩色
+           是横幅下沿 2px 朱砂线（身份锚点）；③ 颜色只留给承载信息的地方：四态消息、
+           成绩档位、到期警示，不做装饰；④ 深色下阴影无效，层级靠「面」：
+           #0A0A0A < 页签条 #111111 < 纸面 #161616，凹槽 #101010 反而更暗。 */
         .dark {
-            --bg: #10141F;
-            --card-bg: #182032;
-            --text: #E4EAF5;
-            --text-secondary: #A9B6CE;
-            --text-muted: #7583A0;
-            --border: #2A3550;
-            --hairline: #232D45;
-            --input-bg: #131A2B;
-            --input-border: #38466A;
-            --accent: #7EA6E0;
-            --accent-strong: #98BBEB;
-            --accent-soft: #202C48;
-            --accent-contrast: #0E1830;
-            --stat-bg: #1D2840;
-            --course-bg: #151E30;
-            --course-item-bg: #22304C;
-            --course-item-text: #CBD6EA;
-            --hover-bg: #1C2740;
-            --th-bg: #1B2540;
-            --tab-bg: #141C2E;
-            --tab-hover: rgba(126,166,224,0.12);
-            --header-start: #17203A;
-            --header-end: #0D1220;
-            --seal: #E08268;
-            --seal-soft: #39211A;
-            --gold: #D3AD55;
-            --gold-soft: #322A16;
-            --info: #82B5D4;
-            --info-soft: #16272f;
-            --leaf: #6FCB96;
-            --leaf-soft: #17301F;
-            --sc-a: #6FCB96;
-            --sc-b: #82B5D4;
-            --sc-c: #D3AD55;
-            --sc-d: #DD9457;
-            --sc-f: #E08268;
-            --chart-a: #2C3E63;
-            --chart-b: #7EA6E0;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.35);
-            --shadow-md: 0 12px 30px -12px rgba(0,0,0,0.55);
+            color-scheme: dark;              /* 原生下拉面板/滚动条/表单控件跟随深色 */
+            --bg: #0A0A0A;
+            --card-bg: #161616;
+            --text: #F0F0F0;
+            --text-secondary: #A8A8A8;
+            --text-muted: #8A8A8A;           /* 11~12px 小字仍 ≥5.3:1 */
+            --border: #2C2C2C;
+            --hairline: #202020;
+            --input-bg: #101010;
+            --input-border: #383838;
+            --accent: #FAFAFA;               /* 唯一强调色：近白 */
+            --accent-strong: #FFFFFF;
+            --accent-soft: #262626;
+            --accent-contrast: #0A0A0A;
+            --stat-bg: #101010;
+            --course-bg: #101010;
+            --hover-bg: #1C1C1C;
+            --th-bg: #1C1C1C;
+            --tab-bg: #111111;
+            --tab-hover: rgba(255,255,255,0.06);
+            /* 横幅也走黑：靠"面"的明度差 + 蛛丝纹理 + 朱砂细线分层，不靠色相 */
+            --header-start: #171717;
+            --header-end: #0D0D0D;
+            --seal: #F87171;
+            --seal-soft: #2A1212;
+            --seal-solid: #B91C1C;           /* 实心朱砂：白字压浅朱砂只有 2.3:1，故按钮改深朱砂 */
+            --seal-on: #FEF2F2;
+            --gold: #FBBF24;
+            --gold-soft: #2A1F08;
+            --info: #9EC5E8;
+            --info-soft: #101C29;
+            --leaf: #4ADE80;
+            --leaf-soft: #0C2417;
+            --leaf-solid: #4ADE80;
+            --leaf-on: #04210F;
+            --sc-a: #4ADE80;
+            --sc-b: #9EC5E8;
+            --sc-c: #FBBF24;
+            --sc-d: #FB923C;
+            --sc-f: #F87171;
+            --chart-a: #4A4A4A;              /* 柱底必须亮过卡片，否则柱子像浮空色块 */
+            --chart-b: #E5E5E5;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.6);
+            --shadow-md: 0 16px 40px -16px rgba(0,0,0,0.9);
+            --dot: rgba(255,255,255,0.03);   /* 页底纸纹：中性白点 */
+            --scrim: rgba(0,0,0,0.72);
+            --alert-bg-a: #241B08;
+            --alert-bg-b: #2E2209;
+            --alert-fg: #FBBF24;
+            --alert-line: #4A3A10;
+            --alert-glow: rgba(0,0,0,0.6);
+            --alert-warn-bg-a: #2A1610;
+            --alert-warn-bg-b: #341A12;
+            --alert-warn-fg: #FB923C;
+            --alert-warn-line: #5A2E1B;
+            --alert-warn-glow: rgba(0,0,0,0.6);
+            --alert-dead-a: #B91C1C;
+            --alert-dead-b: #991B1B;
+            --alert-dead-fg: #FEF2F2;
+            --course-header-bg: #1F1F1F;
+            --course-header-fg: #E5E5E5;
         }
+        /* ---- 深色补丁：深色下"面"承担层级；顺手修掉浅色遗留的绿黑阴影 ---- */
+        .dark .card { box-shadow: inset 0 1px 0 rgba(255,255,255,0.045), var(--shadow-sm); }
+        .dark .header { color: #EDEDED; }
+        /* 近白主按钮 hover：brightness() 对白底已经到顶（等于没反馈），改用一圈白光环 */
+        .dark .btn-primary:hover { filter: none; box-shadow: 0 0 0 3px rgba(255,255,255,0.18); }
+        .dark .main-nav { box-shadow: 0 8px 18px -16px rgba(0,0,0,0.9); }
+        /* 吸顶工具条：浅色用 --bg 是"纸面压深一档"，深色里比卡片更暗会挖出黑洞，
+           故反向抬成 --th-bg（与表头同族的浮起带） */
+        .dark .course-toolbar { background: var(--th-bg); box-shadow: 0 6px 14px -14px rgba(0,0,0,0.9); }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        ::selection { background: var(--accent-soft); }
+        ::selection { background: var(--accent-soft); color: var(--text); }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
             background:
-                radial-gradient(rgba(47,92,158,0.05) 1px, transparent 1px) 0 0 / 26px 26px,
+                radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 26px 26px,
                 var(--bg);
             color: var(--text);
             min-height: 100vh;
             transition: background-color 0.3s ease, color 0.3s ease;
         }
-        body.dark { background:
-                radial-gradient(rgba(126,166,224,0.04) 1px, transparent 1px) 0 0 / 26px 26px,
-                var(--bg); }
         .container { max-width: 1000px; margin: 0 auto; padding: 20px; }
 
         /* ---- 头部：松墨横幅 + 蛛网纹理 + 朱砂丝线（紧凑条幅） ---- */
@@ -133,7 +187,7 @@
                     transparent 0 26deg, rgba(255,255,255,0.07) 26deg 27.5deg);
             pointer-events: none;
         }
-        .dark .header::before { opacity: 0.55; }
+        .dark .header::before { opacity: 0.85; }
         .header .container { position: relative; display: flex; justify-content: space-between; align-items: center; }
         .header h1 {
             font-family: "Kaiti SC", "STKaiti", KaiTi, "Songti SC", SimSun, serif;
@@ -192,10 +246,8 @@
         .btn:hover { transform: translateY(-1px); }
         .btn:active { transform: translateY(0); }
         .btn-primary { background: var(--accent); color: var(--accent-contrast); box-shadow: var(--shadow-sm); }
-        .dark .btn-primary:hover { filter: brightness(1.08); }
-        .btn-success { background: var(--leaf); color: #FFFFFF; }
-        .dark .btn-success { color: #0F2413; }
-        .btn-danger { background: var(--seal); color: #fff; }
+        .btn-success { background: var(--leaf-solid); color: var(--leaf-on); }
+        .btn-danger { background: var(--seal-solid); color: var(--seal-on); }
         .btn-outline { background: transparent; color: var(--accent); border-color: currentColor; }
         .btn-outline:hover { background: var(--accent-soft); }
         .btn-sm { padding: 4px 12px; font-size: 12px; border-radius: 7px; }
@@ -398,34 +450,71 @@
         .chart-bar .bar-label { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
         .chart-bar .bar-value { position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; color: var(--accent); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
-        /* ---- 课表：标本卡网格 ---- */
+        /* ---- 课表：周视图 ---- */
         #courseContent { overflow-x: auto; }
-        .course-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; min-width: 620px; }
-        .course-header {
-            background: var(--header-start);
-            color: #fff;
-            padding: 8px 4px;
-            text-align: center;
-            font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            border-radius: 6px;
+        /* ---- 课表：周视图网格（左侧节次轴 + 7 天×10 节）---- */
+        .wk-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        /* 行结构：表头行 + 10 个节次行。大课间不用额外行（grid-template-rows 的轨道是连续排列的，
+           无法在中间插行），改为在「大课间之后那一行」上加 margin-top，视觉上把上午/下午/晚上分开。 */
+        .wk-grid {
+            display: grid;
+            grid-template-columns: 46px repeat(7, minmax(80px, 1fr));
+            grid-template-rows: auto repeat(10, minmax(44px, auto));
+            gap: 2px;
+            min-width: 626px;
+            align-items: stretch;
         }
-        .dark .course-header { background: #26365A; color: #C7D8F2; }
-        .course-cell { background: var(--course-bg); padding: 6px; min-height: 62px; border-radius: 6px; font-size: 11px; border: 1px solid var(--hairline); }
-        .course-cell .course-item {
-            background: var(--course-item-bg);
-            color: var(--course-item-text);
-            padding: 5px 7px;
-            border-radius: 5px;
-            margin-bottom: 4px;
-            border-left: 3px solid var(--accent);
-            box-shadow: var(--shadow-sm);
-            transition: transform 0.15s;
+        .wk-corner { background: transparent; }
+        /* 大课间：加在该行所有格子上，形成一条横向留白带 */
+        .wk-gap-top { margin-top: 10px; }
+        .wk-day {
+            background: var(--course-header-bg);
+            color: var(--course-header-fg);
+            border-radius: 6px; padding: 4px 2px; text-align: center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            line-height: 1.25; overflow: hidden;
         }
-        .course-cell .course-item:hover { transform: translateY(-1px); }
-        .course-cell .course-item .name { font-weight: 700; }
-        .course-cell .course-item .detail { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+        .wk-day .wd { font-size: 12px; font-weight: 700; }
+        .wk-day .wdate { font-size: 10px; opacity: 0.85; font-variant-numeric: tabular-nums; }
+        .wk-day.is-weekend { opacity: 0.72; }
+        .wk-day.is-today { box-shadow: inset 0 0 0 2px var(--seal); }
+        .wk-axis { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); line-height: 1.1; position: relative; z-index: 3; pointer-events: none; }
+        .wk-axis .num { font-size: 12px; font-weight: 700; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+        .wk-axis .tm { font-size: 9px; font-variant-numeric: tabular-nums; }
+        .wk-slot { background: var(--course-bg); border-radius: 4px; }
+        .wk-event {
+            border-radius: 6px; padding: 4px 5px; overflow: hidden;
+            background: var(--wk-fill); color: var(--wk-ink);
+            border-left: 3px solid var(--wk-bar);
+            display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+        }
+        .wk-event .nm { font-size: 11px; font-weight: 700; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .wk-event .mt { font-size: 9px; line-height: 1.3; opacity: 0.82; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .wk-event .mt.room { -webkit-line-clamp: 1; }
+        /* 长时段课（跨 ≥3 节）：教师与教室贴在块的底部，避免中间大片留白 */
+        .wk-event.is-long { justify-content: space-between; }
+        .wk-event.is-long .meta { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+        .wk-c1 { --wk-fill: #E7EFF9; --wk-ink: #33415E; --wk-bar: #2F5C9E; }
+        .wk-c2 { --wk-fill: #E7F2E9; --wk-ink: #24503A; --wk-bar: #2F8F5B; }
+        .wk-c3 { --wk-fill: #E6EFF4; --wk-ink: #234C5E; --wk-bar: #2E6E8E; }
+        .wk-c4 { --wk-fill: #F7EFDA; --wk-ink: #6B4E10; --wk-bar: #A87B18; }
+        .wk-c5 { --wk-fill: #FAEBE5; --wk-ink: #7A3A26; --wk-bar: #BC4A2F; }
+        .wk-c6 { --wk-fill: #EAE8F6; --wk-ink: #3A3566; --wk-bar: #6B62B8; }
+        .wk-c7 { --wk-fill: #F0E9F5; --wk-ink: #573A63; --wk-bar: #9B59B6; }
+        .wk-c8 { --wk-fill: #E4F2F2; --wk-ink: #1F4A4A; --wk-bar: #2AA198; }
+        .wk-c9 { --wk-fill: #F5EDE3; --wk-ink: #5C4227; --wk-bar: #B9773B; }
+        .wk-c10 { --wk-fill: #ECEFF3; --wk-ink: #3A4450; --wk-bar: #5A6B7D; }
+        .dark .wk-c1 { --wk-fill: #16243A; --wk-ink: #CBDCF2; --wk-bar: #5B8FD4; }
+        .dark .wk-c2 { --wk-fill: #14291C; --wk-ink: #C6E9D1; --wk-bar: #4ADE80; }
+        .dark .wk-c3 { --wk-fill: #13242C; --wk-ink: #C3E1EC; --wk-bar: #4FA3C4; }
+        .dark .wk-c4 { --wk-fill: #2A2410; --wk-ink: #F0DFAE; --wk-bar: #FBBF24; }
+        .dark .wk-c5 { --wk-fill: #2C1612; --wk-ink: #F2C9BC; --wk-bar: #F87171; }
+        .dark .wk-c6 { --wk-fill: #1E1B33; --wk-ink: #D3CEF0; --wk-bar: #9A8FE0; }
+        .dark .wk-c7 { --wk-fill: #241830; --wk-ink: #E2CDEF; --wk-bar: #B983D6; }
+        .dark .wk-c8 { --wk-fill: #0F2626; --wk-ink: #BEE8E4; --wk-bar: #3FC7BB; }
+        .dark .wk-c9 { --wk-fill: #2A1E12; --wk-ink: #EED7BC; --wk-bar: #D99A5B; }
+        .dark .wk-c10 { --wk-fill: #1C2027; --wk-ink: #C9D2DC; --wk-bar: #8496A8; }
+        .wk-nodata { text-align: center; color: var(--text-muted); padding: 26px 12px; font-size: 13px; }
 
         /* ---- 密码显示切换 ---- */
         .pwd-wrapper { position: relative; display: flex; align-items: center; }
@@ -496,7 +585,7 @@
         /* ---- 周选择弹层 ---- */
         .week-picker-overlay {
             position: fixed; inset: 0;
-            background: rgba(20,32,22,0.45);
+            background: var(--scrim);
             backdrop-filter: blur(2px);
             z-index: 999;
             display: none;
@@ -541,23 +630,23 @@
             font-weight: 600;
             letter-spacing: 0.04em;
             border-radius: 999px;
-            color: #7A4A00;
-            background: linear-gradient(135deg, #FFF4D6, #FFE7AE);
-            border: 1px solid #F0D48A;
-            box-shadow: 0 2px 10px rgba(199, 126, 31, 0.18);
+            color: var(--alert-fg);
+            background: linear-gradient(135deg, var(--alert-bg-a), var(--alert-bg-b));
+            border: 1px solid var(--alert-line);
+            box-shadow: 0 2px 10px var(--alert-glow);
             font-variant-numeric: tabular-nums;
         }
         #expireBanner.show { display: block; animation: bannerIn 0.4s ease both; }
         @keyframes bannerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
         #expireBanner.warn-soon {
-            color: #8A3B00;
-            background: linear-gradient(135deg, #FFE8D1, #FFCFA3);
-            border-color: #F0B27A;
-            box-shadow: 0 2px 10px rgba(192, 90, 20, 0.25);
+            color: var(--alert-warn-fg);
+            background: linear-gradient(135deg, var(--alert-warn-bg-a), var(--alert-warn-bg-b));
+            border-color: var(--alert-warn-line);
+            box-shadow: 0 2px 10px var(--alert-warn-glow);
         }
         #expireBanner.expired {
-            color: #FFF9EC;
-            background: repeating-linear-gradient(-45deg, #C03A28 0 14px, #A82E1E 14px 28px);
+            color: var(--alert-dead-fg);
+            background: repeating-linear-gradient(-45deg, var(--alert-dead-a) 0 14px, var(--alert-dead-b) 14px 28px);
             border-color: transparent;
             text-shadow: 0 1px 1px rgba(0,0,0,0.25);
             text-align: center;
@@ -729,6 +818,19 @@
 
         .hidden { display: none !important; }
     </style>
+    <script>
+        /* 主题引导：必须赶在 <body> 渲染前执行，否则深色系统用户每次加载都会闪一下白。
+           主题类挂在 <html> 上，CSS 的 `.dark` 同时兼容挂在 html 或 body（离线预览脚本挂 body）。
+           localStorage：'1'=深色，'0'=浅色，缺省=跟随系统。 */
+        (function () {
+            try {
+                var saved = localStorage.getItem('darkTheme');
+                var isDark = saved === '1' ||
+                    (saved === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (isDark) { document.documentElement.classList.add('dark'); }
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body data-page-node-id="cBjUe3ys5Rwh3XbPYxBvK8">
     <!-- 极简线性图标库（outlined · 2px 圆头 · currentColor） -->
@@ -765,7 +867,7 @@
             <h1 data-page-node-id="bh4ZNTID436p73hFxXsbb0"><span class="brand-seal" data-page-node-id="yAPfDnRO3BsR9d8Vpoi4Ol">蛛</span><span data-page-node-id="H19Lu1GTCojwdhQ9s80b3D">Spider-Go</span></h1>
             <div class="header-right" data-page-node-id="c4sob7OWxA9qOjpUSgc2n7">
                 <span class="user-info hidden" id="headerUserInfo" data-page-node-id="a1Aej0inMhZrMkfOpH5IpD"></span>
-                <button class="btn-icon" id="btnTheme" onclick="toggleTheme()" title="切换主题" data-page-node-id="C00PFIyV0fPH1eJdvZS4ZC"><svg class="ic" data-page-node-id="Vt3r5aCVaEjcnRxBxLGgvq"><use href="#i-moon" data-page-node-id="qFttAyUqeZI8WOznRUlnHk"/></svg></button>
+                <button class="btn-icon" id="btnTheme" onclick="toggleTheme()" title="切换主题" aria-label="切换到深色模式" aria-pressed="false" data-page-node-id="C00PFIyV0fPH1eJdvZS4ZC"><svg class="ic" data-page-node-id="Vt3r5aCVaEjcnRxBxLGgvq"><use href="#i-moon" data-page-node-id="qFttAyUqeZI8WOznRUlnHk"/></svg></button>
                 <button class="btn btn-outline btn-sm hidden" id="btnLogout" onclick="logout()" style="color:#fff;border-color:rgba(255,255,255,0.5);" data-page-node-id="rrx1g1wTxFgeLz0MafAvo1">退出登录</button>
             </div>
         </div>
@@ -1021,13 +1123,23 @@
         }
 
         // ========== Theme ==========
+        // 主题类挂在 <html> 上（<head> 的引导脚本已提前落好），避免深色系统下闪白。
+        // localStorage：'1'=深色，'0'=浅色，缺省=跟随系统
         const MOON_IC = '<svg class="ic"><use href="#i-moon"/></svg>', SUN_IC = '<svg class="ic"><use href="#i-sun"/></svg>';
-        function toggleTheme() {
-            const isDark = document.body.classList.toggle('dark');
-            localStorage.setItem('darkTheme', isDark ? '1' : '');
-            document.getElementById('btnTheme').innerHTML = isDark ? SUN_IC : MOON_IC;
+        function syncThemeBtn() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const btn = document.getElementById('btnTheme');
+            if (!btn) return;
+            btn.innerHTML = isDark ? SUN_IC : MOON_IC;
+            btn.setAttribute('aria-label', isDark ? '切换到浅色模式' : '切换到深色模式');
+            btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
         }
-        if (localStorage.getItem('darkTheme')) { document.body.classList.add('dark'); document.getElementById('btnTheme').innerHTML = SUN_IC; }
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkTheme', isDark ? '1' : '0');
+            syncThemeBtn();
+        }
+        syncThemeBtn();
 
         // 从服务器刷新 currentUser 的 is_bind 状态，确保各页面使用最新数据
         async function refreshCurrentUser() {
@@ -2223,9 +2335,8 @@
             grades.forEach(g => {
                 const sc = parseInt(g.score) >= 90 ? 'var(--sc-a)' : parseInt(g.score) >= 80 ? 'var(--sc-b)' : parseInt(g.score) >= 70 ? 'var(--sc-c)' : parseInt(g.score) >= 60 ? 'var(--sc-d)' : 'var(--sc-f)';
                 const isElec = isElective(g);
-                const isReq = isRequired(g);
                 const propText = (g.course_property && g.course_property !== g.property) ? (g.property + ' / ' + g.course_property) : (g.course_property || g.property || '-');
-                const badge = isReq && !isElec ? ' <span style="font-size:10px;color:#fff;background:var(--leaf);border-radius:3px;padding:0 4px;">计入</span>' : (isElec ? ' <span style="font-size:10px;color:var(--text-muted);border:1px solid var(--text-muted);border-radius:3px;padding:0 4px;">公选</span>' : '');
+                const badge = isElec ? ' <span style="font-size:10px;color:var(--text-muted);border:1px solid var(--text-muted);border-radius:3px;padding:0 4px;">公选</span>' : '';
                 html += `<tr style="${isElec ? 'opacity:0.6;' : ''}">
                     <td>${escapeHtml(g.term||'-')}</td>
                     <td>${escapeHtml(g.code||'-')}</td>
@@ -2237,7 +2348,6 @@
                 </tr>`;
             });
             html += '</tbody></table>';
-            html += '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">评奖评优仅计入「课程属性」为必修的课程；<span style="color:var(--leaf);font-weight:600;">计入</span> = 计入评奖评优，<span style="opacity:0.6;">灰显</span> = 公选/任选不计入。课程性质（公共课/通识教育课程等）不参与判断。</div>';
             document.getElementById('gradeContent').innerHTML = html;
         }
 
@@ -2412,22 +2522,158 @@
             document.getElementById('weekDisplay').textContent = `第 ${currentWeek} 周`;
         }
 
+        // 作息时间：与教务 1~10 节对应。教务接口不返回时间，故此处本地常量（如学校调作息需同步改）。
+        // ⚠️ 3/4 节是 10:00-10:45 / 10:55-11:40；7/8 节是 16:00-16:45 / 16:55-17:40（用户 2026-09-21 确认）。
+        const PERIOD_TIMES = [
+            ['08:00','08:45'], ['08:55','09:40'],   // 上午 1、2 节
+            ['10:00','10:45'], ['10:55','11:40'],   // 上午 3、4 节
+            ['14:00','14:45'], ['14:55','15:40'],   // 下午 5、6 节
+            ['16:00','16:45'], ['16:55','17:40'],   // 下午 7、8 节
+            ['19:00','19:45'], ['19:55','20:40']    // 晚上 9、10 节
+        ];
+
+        // 大课间：2、4、6、8 节之后各留一段横向空白，把「上午 / 下午 / 晚上」在视觉上分开。
+        const BREAK_AFTER = [2, 4, 6, 8];
+
+        // 学期第 1 周周一的日期。后端 WeekSchedule.Starttime/Endtime 目前恒为空串，
+        // 无法从接口推算日期，故按下表给已知学期写死；只影响表头日期显示，不影响课程。
+        const SEMESTER_START = {
+            '2026-2027-1': '2026-09-07',
+            '2025-2026-2': '2026-02-23',
+            '2025-2026-1': '2025-09-08'
+        };
+
+        function fmtMD(d) { return `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')}`; }
+
+        // 第 week 周 7 天的日期；学期无起始日期记录时返回 null（表头只显示星期）
+        function weekDates(term, week) {
+            const iso = SEMESTER_START[term];
+            if (!iso) return null;
+            const d = new Date(iso + 'T00:00:00');
+            if (isNaN(d.getTime())) return null;
+            d.setDate(d.getDate() + (week - 1) * 7);
+            return Array.from({ length: 7 }, (_, i) => { const x = new Date(d); x.setDate(d.getDate() + i); return { md: fmtMD(x), full: x }; });
+        }
+
+        // 一天内课程按 (节次, 课程名) 去重，避免同一门课的不同周次记录重复渲染
+        function dedupeDayCourses(list) {
+            const seen = new Set();
+            return (list || []).filter(c => {
+                const k = `${c.start_period}|${c.end_period}|${c.name || ''}`;
+                if (seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+        }
+
+        // 课程配色：
+        //   需求 —— 同一门课颜色一致（跨星期/教师/教室都一致）、不同课程颜色不同。
+        //   做法 —— 取本周出现的所有课程名，排序后稳定分配色板下标；
+        //          这样「同名必同色」由映射保证，且不同课程尽可能分到不同色。
+        //          （纯哈希无法保证不撞色：课数 > 色板数时鸽笼原理必然冲突。）
+        const WK_PALETTE_N = 10;
+        function buildCourseColorMap(days) {
+            const names = new Set();
+            (days || []).forEach(day => (day.courses || []).forEach(c => {
+                const n = (c.name || '').trim();
+                if (n) names.add(n);
+            }));
+            const sorted = [...names].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+            const map = {};
+            sorted.forEach((n, i) => { map[n] = 'wk-c' + (1 + (i % WK_PALETTE_N)); });
+            return map;
+        }
+
+        // 网格行号：第 1 行是表头，第 p 节在 p+1 行（无额外空隙行；大课间用 margin 表现）
+        function periodGridRow(period) { return period + 1; }
+
+        // 该节是否是大课间之后的第 1 节（2、4、6、8 节之后各有一个大课间）
+        function isAfterBreak(period) { return BREAK_AFTER.includes(period - 1); }
+
         function renderCourses(data, term) {
-            const days = ['周一','周二','周三','周四','周五','周六','周日'];
-            let html = '<div class="course-grid">';
-            days.forEach(d => { html += `<div class="course-header">${escapeHtml(d)}</div>`; });
+            const days = ['一','二','三','四','五','六','日'];
+            const dates = weekDates(term, currentWeek);
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
             const byDay = {};
-            (data.days || []).forEach(day => { const wd = day.weekday || 1; if (!byDay[wd]) byDay[wd] = []; (day.courses || []).forEach(c => byDay[wd].push(c)); });
-            for (let wd = 1; wd <= 7; wd++) {
-                let cell = '';
-                (byDay[wd] || []).forEach(c => {
-                    const period = c.start_period && c.end_period ? `${c.start_period}-${c.end_period}节` : '';
-                    cell += `<div class="course-item"><div class="name">${escapeHtml(c.name||'')}</div><div class="detail">${escapeHtml(period)} ${escapeHtml(c.classroom||'')}</div><div class="detail">${escapeHtml(c.teacher||'')}</div></div>`;
-                });
-                html += `<div class="course-cell">${cell}</div>`;
+            (data.days || []).forEach(day => {
+                const wd = day.weekday || 1;
+                if (!byDay[wd]) byDay[wd] = [];
+                (day.courses || []).forEach(c => byDay[wd].push(c));
+            });
+
+            const shortName = n => {
+                n = (n || '').trim();
+                return n.length > 7 ? n.slice(0, 7) + '…' : n;
+            };
+            const shortRoom = r => {
+                r = (r || '').replace(/[（）()]/g, ' ').trim();
+                const m = r.match(/([东南西北])?\s*(\d{3,4})/);
+                return m ? (m[1] || '') + m[2] : '';
+            };
+
+            const rowOf = periodGridRow;
+            const colorMap = buildCourseColorMap(data.days);
+
+            // ---- 表头行（grid-row: 1）----
+            let head = '<div class="wk-corner" style="grid-row:1;grid-column:1;"></div>';
+            for (let i = 0; i < 7; i++) {
+                const dt = dates ? dates[i] : null;
+                const isToday = dt && `${dt.full.getFullYear()}-${String(dt.full.getMonth()+1).padStart(2,'0')}-${String(dt.full.getDate()).padStart(2,'0')}` === todayStr;
+                head += `<div class="wk-day${i >= 5 ? ' is-weekend' : ''}${isToday ? ' is-today' : ''}" `
+                     +  `style="grid-row:1;grid-column:${i + 2};">`
+                     +  `<span class="wd">${days[i]}</span>`
+                     +  (dt ? `<span class="wdate">${dt.md}</span>` : '')
+                     +  `</div>`;
             }
-            html += '</div>';
-            document.getElementById('courseContent').innerHTML = `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;"><svg class="ic"><use href="#i-mappin"/></svg> ${escapeHtml(data.term||term)} ${data.weekno ? `- 第${escapeHtml('' + data.weekno)}周` : ''}</div>${html}`;
+
+            // ---- 节次轴 + 空白格 ----
+            let body = '';
+            for (let p = 1; p <= 10; p++) {
+                const t = PERIOD_TIMES[p - 1] || ['', ''];
+                const r = rowOf(p);
+                const gap = isAfterBreak(p) ? ' wk-gap-top' : '';
+                body += `<div class="wk-axis${gap}" style="grid-row:${r};grid-column:1;">`
+                     +  `<span class="num">${p}</span><span class="tm">${t[0]}</span><span class="tm">${t[1]}</span></div>`;
+                for (let wd = 1; wd <= 7; wd++) {
+                    body += `<div class="wk-slot${gap}" style="grid-row:${r};grid-column:${wd + 1};"></div>`;
+                }
+            }
+
+            // ---- 课程块（按课程名取色；同一门课颜色恒定）----
+            let events = '';
+            for (let wd = 1; wd <= 7; wd++) {
+                dedupeDayCourses(byDay[wd]).forEach(c => {
+                    const sp = Math.max(1, Math.min(10, parseInt(c.start_period) || 1));
+                    const ep = Math.max(sp, Math.min(10, parseInt(c.end_period) || sp));
+                    const r1 = rowOf(sp);
+                    const span = ep - sp + 1;
+                    const colorKey = colorMap[(c.name || '').trim()] || 'wk-c1';
+                    const room = shortRoom(c.classroom);
+                    const isLong = (ep - sp + 1) >= 3;
+                    const gap = isAfterBreak(sp) ? ' wk-gap-top' : '';
+                    const meta = `<span class="meta">`
+                         + (c.teacher ? `<span class="mt">${escapeHtml(c.teacher)}</span>` : '')
+                         + (room ? `<span class="mt room">@${escapeHtml(room)}</span>` : '')
+                         + `</span>`;
+                    events += `<div class="wk-event ${colorKey}${isLong ? ' is-long' : ''}${gap}" `
+                         +  `style="grid-column:${wd + 1};grid-row:${r1}/span ${span};" `
+                         +  `title="${escapeHtml(c.name || '')} ${escapeHtml(c.teacher || '')} ${escapeHtml(c.classroom || '')}">`
+                         +  `<span class="nm">${escapeHtml(shortName(c.name))}</span>`
+                         +  (isLong ? meta : (c.teacher ? `<span class="mt">${escapeHtml(c.teacher)}</span>` : '')
+                              + (room ? `<span class="mt room">@${escapeHtml(room)}</span>` : ''))
+                         +  `</div>`;
+                });
+            }
+
+            let html = '<div class="wk-wrap"><div class="wk-grid">' + head + body + events + '</div></div>';
+
+            if (!Object.keys(byDay).length) html = '<div class="wk-nodata">本周暂无课程安排</div>';
+
+            const range = dates ? `（${dates[0].md} ~ ${dates[6].md}）` : '';
+            document.getElementById('courseContent').innerHTML =
+                `<div style="font-size:13px;color:var(--text-muted);margin-bottom:8px;"><svg class="ic"><use href="#i-mappin"/></svg> ${escapeHtml(data.term || term)} - 第${currentWeek}周${escapeHtml(range)}</div>${html}`;
         }
 
         function changeWeek(delta) { currentWeek += delta; if (currentWeek < 1) currentWeek = 1; if (currentWeek > 20) currentWeek = 20; loadCourses(); }

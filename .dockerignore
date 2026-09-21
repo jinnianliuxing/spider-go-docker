@@ -8,3 +8,11 @@ spider-go-production.exe
 .idea
 .vscode
 node_modules
+
+# 构建上下文瘦身：这些目录与运行时无关，排除后可少传约 64MB
+.workbuddy
+deploy
+spider-go-docker
+tmp
+*.tar
+*.tar.gz
