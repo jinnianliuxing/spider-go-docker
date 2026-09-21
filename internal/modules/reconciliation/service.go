@@ -159,13 +159,7 @@ func (s *service) syncGrades(ctx context.Context, task *SyncTask, uids []int) er
 			// 检查是否是认证错误，如果是则清除绑定
 			if s.isAuthenticationError(err) {
 				log.Printf("[syncGrades] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-				if s.userQuery != nil {
-					if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-						log.Printf("[syncGrades] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-					} else {
-						log.Printf("[syncGrades] 已清除用户 %d 的教务系统绑定", uid)
-					}
-				}
+				s.clearBindingIfPasswordUser(ctx, "syncGrades", uid)
 			}
 			continue
 		}
@@ -279,13 +273,7 @@ func (s *service) syncRegularGrades(ctx context.Context, task *SyncTask, uids []
 			// 检查是否是认证错误，如果是则清除绑定
 			if s.isAuthenticationError(err) {
 				log.Printf("[syncRegularGrades] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-				if s.userQuery != nil {
-					if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-						log.Printf("[syncRegularGrades] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-					} else {
-						log.Printf("[syncRegularGrades] 已清除用户 %d 的教务系统绑定", uid)
-					}
-				}
+				s.clearBindingIfPasswordUser(ctx, "syncRegularGrades", uid)
 			}
 			continue
 		}
@@ -437,13 +425,7 @@ func (s *service) syncExams(ctx context.Context, task *SyncTask, uids []int) err
 				// 检查是否是认证错误
 				if s.isAuthenticationError(err) {
 					log.Printf("[syncExams] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-					if s.userQuery != nil {
-						if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-							log.Printf("[syncExams] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-						} else {
-							log.Printf("[syncExams] 已清除用户 %d 的教务系统绑定", uid)
-						}
-					}
+					s.clearBindingIfPasswordUser(ctx, "syncExams", uid)
 					task.FailedUsers++
 					logs = append(logs, s.createErrorLog(task.TaskID, uid, "exam", fmt.Sprintf("term:%s auth_error", term), err))
 					break // 认证错误时跳出学期循环
@@ -544,13 +526,7 @@ func (s *service) syncLevelExams(ctx context.Context, task *SyncTask, uids []int
 			// 检查是否是认证错误，如果是则清除绑定
 			if s.isAuthenticationError(err) {
 				log.Printf("[syncLevelExams] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-				if s.userQuery != nil {
-					if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-						log.Printf("[syncLevelExams] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-					} else {
-						log.Printf("[syncLevelExams] 已清除用户 %d 的教务系统绑定", uid)
-					}
-				}
+				s.clearBindingIfPasswordUser(ctx, "syncLevelExams", uid)
 			}
 			continue
 		}
@@ -674,13 +650,7 @@ func (s *service) syncCourses(ctx context.Context, task *SyncTask, uids []int) e
 				// 检查是否是认证错误
 				if s.isAuthenticationError(err) {
 					log.Printf("[syncCourses] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-					if s.userQuery != nil {
-						if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-							log.Printf("[syncCourses] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-						} else {
-							log.Printf("[syncCourses] 已清除用户 %d 的教务系统绑定", uid)
-						}
-					}
+					s.clearBindingIfPasswordUser(ctx, "syncCourses", uid)
 					task.FailedUsers++
 					logs = append(logs, s.createErrorLog(task.TaskID, uid, "course", fmt.Sprintf("term:%s-week:%d auth_error", currentTerm, week), err))
 					authFailed = true
@@ -895,13 +865,7 @@ func (s *service) syncUserGrades(ctx context.Context, task *SyncTask, uid int, n
 
 		if s.isAuthenticationError(err) {
 			log.Printf("[syncUserGrades] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-			if s.userQuery != nil {
-				if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-					log.Printf("[syncUserGrades] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-				} else {
-					log.Printf("[syncUserGrades] 已清除用户 %d 的教务系统绑定", uid)
-				}
-			}
+			s.clearBindingIfPasswordUser(ctx, "syncUserGrades", uid)
 			return logs, true
 		}
 		return logs, false
@@ -995,13 +959,7 @@ func (s *service) syncUserRegularGrades(ctx context.Context, task *SyncTask, uid
 
 		if s.isAuthenticationError(err) {
 			log.Printf("[syncUserRegularGrades] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-			if s.userQuery != nil {
-				if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-					log.Printf("[syncUserRegularGrades] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-				} else {
-					log.Printf("[syncUserRegularGrades] 已清除用户 %d 的教务系统绑定", uid)
-				}
-			}
+			s.clearBindingIfPasswordUser(ctx, "syncUserRegularGrades", uid)
 			return logs, true
 		}
 		return logs, false
@@ -1115,13 +1073,7 @@ func (s *service) syncUserExams(ctx context.Context, task *SyncTask, uid int, ne
 		if err != nil {
 			if s.isAuthenticationError(err) {
 				log.Printf("[syncUserExams] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-				if s.userQuery != nil {
-					if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-						log.Printf("[syncUserExams] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-					} else {
-						log.Printf("[syncUserExams] 已清除用户 %d 的教务系统绑定", uid)
-					}
-				}
+				s.clearBindingIfPasswordUser(ctx, "syncUserExams", uid)
 				logs = append(logs, s.createErrorLog(task.TaskID, uid, "exam", fmt.Sprintf("term:%s auth_error", term), err))
 				return logs, true
 			}
@@ -1197,13 +1149,7 @@ func (s *service) syncUserLevelExams(ctx context.Context, task *SyncTask, uid in
 
 		if s.isAuthenticationError(err) {
 			log.Printf("[syncUserLevelExams] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-			if s.userQuery != nil {
-				if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-					log.Printf("[syncUserLevelExams] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-				} else {
-					log.Printf("[syncUserLevelExams] 已清除用户 %d 的教务系统绑定", uid)
-				}
-			}
+			s.clearBindingIfPasswordUser(ctx, "syncUserLevelExams", uid)
 			return logs, true
 		}
 		return logs, false
@@ -1294,13 +1240,7 @@ func (s *service) syncUserCourses(ctx context.Context, task *SyncTask, uid int, 
 		if err != nil {
 			if s.isAuthenticationError(err) {
 				log.Printf("[syncUserCourses] 用户 %d 登录失败，清除绑定信息: %v", uid, err)
-				if s.userQuery != nil {
-					if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
-						log.Printf("[syncUserCourses] 清除用户 %d 绑定信息失败: %v", uid, clearErr)
-					} else {
-						log.Printf("[syncUserCourses] 已清除用户 %d 的教务系统绑定", uid)
-					}
-				}
+				s.clearBindingIfPasswordUser(ctx, "syncUserCourses", uid)
 				logs = append(logs, s.createErrorLog(task.TaskID, uid, "course", fmt.Sprintf("term:%s-week:%d auth_error", currentTerm, week), err))
 				return logs, true
 			}
@@ -1875,6 +1815,38 @@ func (s *service) TriggerGradeSync(ctx context.Context, uid int) {
 		// 直接调用同步方法，不创建完整的任务
 		s.SyncUser(bgCtx, uid, TaskTypeGrade, TriggerTypeAuto)
 	}()
+}
+
+// isNoPasswordUser 判断该用户是否是「无教务密码」的绑定方式（扫码 / 手机号验证码）。
+//
+// ⚠️ 这两类用户的会话一旦过期，本项目无法静默自愈（重登需要明文密码），
+// 各 ForSync 接口会返回 CodeJwcLoginFailed / CodeJwcSessionExpired 之类的认证错误。
+// 若照旧走 isAuthenticationError → ClearJwcBinding 分支，虽然只清 spwd、
+// 不会清掉 bind_mode，但会反复刷日志、干扰对账统计，且语义上「密码失效」并不成立。
+// 因此对这类用户直接跳过清除动作，交由前端引导用户重新扫码 / 补验证码。
+func (s *service) isNoPasswordUser(ctx context.Context, uid int) bool {
+	if s.userQuery == nil {
+		return false
+	}
+	user, err := s.userQuery.GetUserByUid(ctx, uid)
+	if err != nil || user == nil {
+		return false
+	}
+	return user.IsNoPasswordUser()
+}
+
+// clearBindingIfPasswordUser 认证错误时清除绑定，但跳过无密码用户（扫码 / 手机号）
+func (s *service) clearBindingIfPasswordUser(ctx context.Context, taskName string, uid int) {
+	if s.userQuery == nil {
+		return
+	}
+	if s.isNoPasswordUser(ctx, uid) {
+		log.Printf("[%s] 用户 %d 为无密码绑定方式（扫码/手机号），跳过清除绑定，请前端引导重新登录", taskName, uid)
+		return
+	}
+	if clearErr := s.userQuery.ClearJwcBinding(ctx, uid); clearErr != nil {
+		log.Printf("[%s] 清除用户 %d 绑定失败: %v", taskName, uid, clearErr)
+	}
 }
 
 // isAuthenticationError 判断是否是认证相关错误（登录失败等）

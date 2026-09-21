@@ -104,7 +104,7 @@ func (s *courseService) GetCourseTableByWeek(ctx context.Context, uid int, week 
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -171,7 +171,7 @@ func (s *courseService) GetCourseTableByWeekForSync(ctx context.Context, uid int
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 

@@ -220,7 +220,7 @@ func (s *gradeService) GetAllGrades(ctx context.Context, uid int) ([]Grade, *GPA
 		return nil, nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -402,7 +402,7 @@ func (s *gradeService) GetAllGradesForSync(ctx context.Context, uid int) ([]Grad
 		return nil, nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -429,7 +429,7 @@ func (s *gradeService) GetGradesByTerm(ctx context.Context, uid int, term string
 		return nil, nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -482,7 +482,7 @@ func (s *gradeService) GetGradesByYear(ctx context.Context, uid int, year string
 		return nil, nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -560,7 +560,7 @@ func (s *gradeService) GetLevelGrades(ctx context.Context, uid int) ([]LevelGrad
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -609,7 +609,7 @@ func (s *gradeService) GetLevelGradesForSync(ctx context.Context, uid int) ([]Le
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -844,7 +844,7 @@ func (s *gradeService) ExportTranscript(ctx context.Context, uid int, req Export
 	if err != nil {
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -962,7 +962,7 @@ func (s *gradeService) GetUserGradeMajorClass(ctx context.Context, uid int) (*Us
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 

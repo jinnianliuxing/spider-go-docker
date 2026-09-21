@@ -200,11 +200,14 @@ func (r *repository) ClearJwcBinding(ctx context.Context, uid int) error {
 	}).Error
 }
 
-// FullClearJwcBinding 完全清除教务系统绑定信息（sid + spwd + 绑定计数），用于用户主动注销
+// FullClearJwcBinding 完全清除教务系统绑定信息（sid + spwd + 绑定方式 + 手机号 + 绑定计数），
+// 用于用户主动注销
 func (r *repository) FullClearJwcBinding(ctx context.Context, uid int) error {
 	return r.db.WithContext(ctx).Model(&User{}).Where("uid = ?", uid).Updates(map[string]interface{}{
 		"sid":                      "",
 		"spwd":                     "",
+		"bind_mode":                "",
+		"bind_phone":               "",
 		"bind_count_current_month": 0,
 		"bind_month":               "",
 		"total_bind_count":         0,

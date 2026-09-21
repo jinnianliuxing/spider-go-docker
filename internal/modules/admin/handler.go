@@ -26,10 +26,10 @@ func (h *Handler) RegisterRoutes(public *gin.RouterGroup, authenticated *gin.Rou
 	// 公开路由（无需认证）
 	publicAdmin := public.Group("/admin")
 	{
-		publicAdmin.POST("/login", h.Login)                      // 管理员密码登录
-		publicAdmin.POST("/login/captcha", h.LoginByCaptcha)     // 管理员验证码登录
-		publicAdmin.POST("/reset-password", h.ResetPassword)     // 重置密码（需验证码验证）
-		publicAdmin.POST("/captcha/send", h.SendAdminCaptcha)    // 管理员发送验证码（验证邮箱归属）
+		publicAdmin.POST("/login", h.Login)                   // 管理员密码登录
+		publicAdmin.POST("/login/captcha", h.LoginByCaptcha)  // 管理员验证码登录
+		publicAdmin.POST("/reset-password", h.ResetPassword)  // 重置密码（需验证码验证）
+		publicAdmin.POST("/captcha/send", h.SendAdminCaptcha) // 管理员发送验证码（验证邮箱归属）
 	}
 
 	// 需要认证的路由（authenticated 已经是 /api/admin 了，不需要再加 /admin）

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"spider-go/internal/cache"
 	"spider-go/internal/common"
@@ -15,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/net/publicsuffix"
 )
 
 type Service interface {
@@ -132,17 +136,73 @@ func (s *evaluationService) GetEvaluationInfo(ctx context.Context, uid int) (*[]
 }
 
 // LoginAndCacheEvaluation 登录教评系统并缓存 accessToken
-// 流程：复用 SessionService 登录获取带 TGC 的 client → 用 TGC 访问教评系统重定向链 → 获取 userToken → doLogin 获取 accessToken
+// 流程：拿到带 TGC 的 client → 用 TGC 访问教评系统重定向链 → 获取 userToken → doLogin 获取 accessToken
+//
+// TGC 有两条来源，优先级从高到低：
+//  1. **缓存里已有的 TGC**（session:tgc:<uid>）—— 扫码绑定的用户走这条。
+//     他们没有教务密码（spwd 为空），无法用 LoginAndGetClient。
+//  2. 用学号+密码现登一次 CAS（spwd 非空时才可能）。
+//
+// 两条都不成时返回 nil，由调用方转成「绑定已失效」引导用户重新输入密码／扫码。
 func (s *evaluationService) LoginAndCacheEvaluation(ctx context.Context, uid int, sid, spwd string) error {
-	// 1. 使用 SessionService 登录 CAS，获取带 TGC cookie 的 client
+	// 优先复用已缓存的 TGC（扫码用户唯一可行的路径）
+	if tgc, err := s.sessionCache.GetTGC(ctx, uid); err == nil && tgc != nil && tgc.Value != "" {
+		client := newEvalClient()
+		// 回灌 TGC 到 jar。
+		// ⚠️ 必须用 **TGC 自己的 Domain/Path**，不能一律套 casRedirectURL 的 host：
+		// webvpn 模式下 casRedirectURL 是 jxzlpt 反代域，而 TGC 属于 CAS 反代域，
+		// 域不匹配会导致 cookie 根本不会被发出去 → 拿不到 ticket →「未能获取 userToken」。
+		host := tgc.Domain
+		if host == "" {
+			if casURL, perr := url.Parse(s.casRedirectURL); perr == nil {
+				host = casURL.Hostname()
+			}
+		}
+		path := tgc.Path
+		if path == "" {
+			path = "/cas"
+		}
+		if host != "" {
+			if u, e := url.Parse("https://" + host + path); e == nil {
+				client.Jar.SetCookies(u, []*http.Cookie{tgc})
+				log.Printf("[Evaluation] 回灌 TGC: uid=%d domain=%s path=%s", uid, host, path)
+			}
+		}
+		if err := s.followRedirectsAndGetToken(ctx, client, s.casRedirectURL, uid); err == nil {
+			log.Printf("[Evaluation] 使用缓存的 TGC 登录教评成功: uid=%d", uid)
+			return nil
+		} else {
+			log.Printf("[Evaluation] 缓存的 TGC 登录教评失败，尝试密码登录: uid=%d, err=%v", uid, err)
+		}
+	}
+
+	// 没有可用的 TGC：必须有密码才能现登 CAS
+	if spwd == "" {
+		return common.NewAppError(common.CodeJwcLoginFailed,
+			"当前为扫码绑定（无教务密码），教评会话已过期，请重新扫码后再试")
+	}
+
+	// 使用 SessionService 登录 CAS，获取带 TGC cookie 的 client
 	client, err := s.sessionService.LoginAndGetClient(ctx, sid, spwd)
 	if err != nil {
 		return err
 	}
 
-	// 2. 用这个 client 访问教评系统的 CAS 重定向 URL
+	// 用这个 client 访问教评系统的 CAS 重定向 URL
 	// CAS 服务器会识别 TGC 并签发 ticket，然后重定向到教评系统
 	return s.followRedirectsAndGetToken(ctx, client, s.casRedirectURL, uid)
+}
+
+// newEvalClient 创建一个带 cookie jar 的客户端（用于承载 TGC 走 CAS 重定向链）。
+func newEvalClient() *http.Client {
+	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
+	return &http.Client{
+		Jar:     jar,
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 }
 
 // followRedirectsAndGetToken 跟随重定向链，获取 userToken 并调用 doLogin 获取 accessToken
@@ -308,6 +368,14 @@ func (s *evaluationService) getSession(ctx context.Context, uid int, sid, spwd s
 
 	// 没有可用会话（首次访问 / token 过期 / 进程重启后 client 丢失），重新登录教评系统
 	if err := s.LoginAndCacheEvaluation(ctx, uid, sid, spwd); err != nil {
+		// 扫码用户（无密码）无法靠密码自愈，错误信息要区分开，
+		// 否则前端会一律弹「请重新输入教务密码」——而扫码用户根本没有密码可输。
+		if spwd == "" {
+			if appErr, ok := err.(*common.AppError); ok {
+				return "", nil, appErr
+			}
+			return "", nil, common.ToBindExpired(err)
+		}
 		// 密码错误等认证类失败 → 转换为"绑定已失效"，让前端提示重新输入密码
 		return "", nil, common.ToBindExpired(err)
 	}

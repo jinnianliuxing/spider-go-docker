@@ -98,7 +98,7 @@ func (s *examService) GetAllExams(ctx context.Context, uid int, term string) ([]
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 
@@ -157,7 +157,7 @@ func (s *examService) GetAllExamsForSync(ctx context.Context, uid int, term stri
 		return nil, common.NewAppError(common.CodeUserNotFound, "用户不存在")
 	}
 
-	if user.Sid == "" || user.Spwd == "" {
+	if !user.CanQuery() {
 		return nil, common.NewAppError(common.CodeJwcNotBound, "未绑定教务系统账号")
 	}
 

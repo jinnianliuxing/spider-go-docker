@@ -33,8 +33,8 @@ const sessionProbeTTL = 30 * time.Second
 const sessionProbeMaxEntries = 4096
 
 var sessionProbeState = struct {
-	mu  sync.Mutex
-	ok  map[int]time.Time
+	mu sync.Mutex
+	ok map[int]time.Time
 }{ok: make(map[int]time.Time)}
 
 // SessionLooksValid 判断响应正文是否表明教务会话仍然有效。

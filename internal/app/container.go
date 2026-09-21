@@ -53,11 +53,13 @@ type Container struct {
 	MagicLinkCache  cache.MagicLinkCache
 
 	// Services (infrastructure services only)
-	RSAKeyService  service.RSAKeyService
-	SessionService service.SessionService
-	CrawlerService service.CrawlerService
-	EmailService   service.EmailService
-	DAUService     service.DAUService
+	RSAKeyService     service.RSAKeyService
+	SessionService    service.SessionService
+	QrLoginService    service.QrLoginService
+	PhoneLoginService service.PhoneLoginService
+	CrawlerService    service.CrawlerService
+	EmailService      service.EmailService
+	DAUService        service.DAUService
 
 	// Modules (new architecture)
 	UserModule           *user.Module
@@ -217,9 +219,26 @@ func (c *Container) initServices() {
 		c.Config.Jwc.CaptchaImageURL,
 	)
 
+	// QrLogin Service（i中南林 App 扫码登录）
+	// CAS 地址用 webvpn 模式下的 login_url：扫码时浏览器实际访问的就是
+	// https-cas-csuft-edu-cn-443.webvpn.csuft.edu.cn，不能用原始 cas.csuft.edu.cn。
+	c.QrLoginService = service.NewQrLoginService(
+		c.SessionCache,
+		c.RSAKeyService,
+		currentMode.LoginURL,
+		c.Config.Jwc.WebvpnTokenURL,
+	)
+
+	// PhoneLogin Service（i中南林 App 免密短信登录 / 手机号验证码绑定）
+	// 与扫码同样使用 webvpn 模式下的 login_url（浏览器实际访问的是 CAS 反代域）。
+	c.PhoneLoginService = service.NewPhoneLoginService(
+		c.SessionCache,
+		currentMode.LoginURL,
+		c.Config.Jwc.WebvpnTokenURL,
+	)
+
 	// Crawler Service
 	c.CrawlerService = service.NewHttpCrawlerService()
-
 	// Email Service（邮件服务）
 	c.EmailService = service.NewEmailService(
 		c.Config.Email.SMTPHost,
@@ -264,6 +283,8 @@ func (c *Container) initModules() {
 		c.Config.Wx.AppId,
 		c.Config.Wx.AppSecret,
 		c.Config.App.BaseURL,
+		c.QrLoginService,
+		c.PhoneLoginService,
 	)
 
 	// Admin Module（管理员模块）

@@ -15,7 +15,7 @@ type Grade struct {
 	Property string  `json:"property"` // 课程性质名称：必修/选修/任选/限选（来自教务 kcxzmc）
 	// CourseProperty 课程属性（来自教务 kcsx，如公选/任选/通识等；可用于识别"评奖评优不计入的公选课程"）
 	CourseProperty string `json:"course_property,omitempty"`
-	Flag     string  `json:"flag"`     //课程标志 修复缓考还计算成绩的bug
+	Flag           string `json:"flag"` //课程标志 修复缓考还计算成绩的bug
 }
 
 // 评奖评优是否计入，判断依据是教务"课程属性"字段 kcsx（映射到 Grade.CourseProperty）。

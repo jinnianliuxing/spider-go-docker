@@ -48,6 +48,15 @@ type Service interface {
 
 	// BindJwc 教务系统绑定相关
 	BindJwc(ctx context.Context, uid int, sid, spwd, ipAddress, userAgent string) error
+	// BindJwcByQR 扫码绑定（i中南林 App）：用扫码拿到的身份完成绑定。
+	// 不校验密码，学号必须与已绑一致；写入 BindMode=qr，spwd 置空。
+	BindJwcByQR(ctx context.Context, uid int, result *service.QrLoginResult, ipAddress, userAgent string) error
+	// BindJwcByPhone 手机号验证码绑定：用短信验证码登录后的身份完成绑定。
+	// 不校验教务密码，学号必须与已绑一致；写入 BindMode=phone 与 BindPhone，spwd 置空。
+	//
+	// ⚠️ 本方法同时服务「首次绑定」与「会话过期后补一次验证码」两个场景 ——
+	// 两者流程完全一致（学号一致即刷新），因此不区分。
+	BindJwcByPhone(ctx context.Context, uid int, result *service.PhoneLoginResult, ipAddress, userAgent string) error
 	// BindJwcStartMFA 绑定时命中短信验证码 MFA，调用这个触发发送验证码
 	BindJwcStartMFA(ctx context.Context, uid int, sid, spwd, ipAddress, userAgent string) (challengeID string, maskedPhone string, err error)
 	// BindJwcCompleteMFA 提交短信验证码，完成绑定
@@ -70,7 +79,7 @@ type Service interface {
 	LoginByMagicLink(ctx context.Context, token string) (tokenString string, user *User, err error)
 	// UpdateEmail 更新邮箱（需要验证码）
 	UpdateEmail(ctx context.Context, uid int, email, captcha string) error
-	// UnbindJwc 注销教务系统绑定（清除 sid+spwd+所有同步数据，1天冷却期）
+	// UnbindJwc 注销教务系统绑定（清除 sid+spwd+所有同步数据）
 	UnbindJwc(ctx context.Context, uid int, ipAddress, userAgent string) error
 }
 
@@ -429,6 +438,189 @@ func (s *userService) BindJwc(ctx context.Context, uid int, sid, spwd, ipAddress
 	return nil
 }
 
+// ============================================================================
+// 扫码绑定（i中南林 App）
+// ============================================================================
+
+// BindJwcByQR 用扫码结果完成教务绑定。
+//
+// 与 BindJwc 的区别：
+//   - 不校验教务密码（扫码流程本来就没有密码）
+//   - 校验的是"扫码拿到的学号"必须与本站账号的学号一致（防串号）
+//   - 写入 BindMode=BindModeQR，Spwd 留空
+//   - 不调用 LoginAndCache（无密码）—— 扫码时建立的会话由 qrLoginService 负责缓存
+//
+// ⚠️ 绑定成功后 spwd 为空，会话过期后无法自动重登，用户需重新扫码。
+// 这是产品上接受的代价（需求："会话过期不要紧，该扫码时候就扫码"）。
+func (s *userService) BindJwcByQR(ctx context.Context, uid int, result *service.QrLoginResult, ipAddress, userAgent string) error {
+	if result == nil || result.Sid == "" {
+		return common.NewAppError(common.CodeInvalidParams, "未能从扫码结果中获取学号")
+	}
+	sid := result.Sid
+
+	user, err := s.repo.FindByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	// 学号必须一致：本站账号若已绑了别的学号，不允许用扫码静默覆盖。
+	if user.Sid != "" && user.Sid != sid {
+		_ = s.logBindAttempt(ctx, uid, user.Sid, sid, BindStatusFailedLimit, "扫码学号与已绑学号不一致", ipAddress, userAgent)
+		return common.NewAppError(common.CodeBindLimitExceeded,
+			fmt.Sprintf("扫码得到的是学号 %s，与当前已绑定的 %s 不一致。如需更换学号请使用密码绑定", sid, user.Sid))
+	}
+
+	isSameSid := user.Sid == sid
+
+	tx := s.repo.(*repository).db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	oldSid := user.Sid
+	now := time.Now()
+	updates := map[string]interface{}{
+		"sid":          sid,
+		"spwd":         "",         // 扫码拿不到密码，显式清空
+		"bind_mode":    BindModeQR, // 标记为扫码绑定
+		"last_bind_at": now,
+	}
+	if !isSameSid {
+		updates["total_bind_count"] = user.TotalBindCount + 1
+	}
+	if err := tx.WithContext(ctx).Model(&User{}).Where("uid = ?", uid).Updates(updates).Error; err != nil {
+		tx.Rollback()
+		_ = s.logBindAttempt(ctx, uid, oldSid, sid, BindStatusFailedOther, fmt.Sprintf("更新数据库失败: %v", err), ipAddress, userAgent)
+		return common.NewAppError(common.CodeDatabaseError, "绑定失败，请稍后重试")
+	}
+
+	bindLog := &JwcBindLog{
+		Uid:        uid,
+		OldSid:     oldSid,
+		NewSid:     sid,
+		BindStatus: BindStatusSuccess,
+		IpAddress:  ipAddress,
+		UserAgent:  userAgent,
+		CreatedAt:  now,
+	}
+	if err := tx.WithContext(ctx).Create(bindLog).Error; err != nil {
+		tx.Rollback()
+		return common.NewAppError(common.CodeDatabaseError, "记录日志失败")
+	}
+	if err := tx.Commit().Error; err != nil {
+		return common.NewAppError(common.CodeDatabaseError, "提交事务失败")
+	}
+
+	// 缓存扫码过程建立的教务会话（含 TGC，评教需要），让用户绑定后能立刻查询，不必再扫一次。
+	// 失败不影响绑定结果（用户查询时会重新引导扫码）。
+	if err := s.sessionService.CacheLoginSession(ctx, uid, result.Client, result.TGC); err != nil {
+		log.Printf("[BindJwcByQR] 缓存扫码会话失败（不影响绑定结果）: uid=%d, err=%v", uid, err)
+	}
+
+	log.Printf("[BindJwcByQR] 扫码绑定成功: uid=%d sid=%s name=%s", uid, sid, result.Name)
+	return nil
+}
+
+// ============================================================================
+// 手机号验证码绑定（i中南林 App / CAS 免密短信登录）
+// ============================================================================
+
+// BindJwcByPhone 用短信验证码登录结果完成教务绑定。
+//
+// 与 BindJwc / BindJwcByQR 的差异：
+//   - 不校验教务密码（短信验证码已经完成身份认证）
+//   - 校验的是"验证码登录拿到的学号"必须与本站账号的学号一致（防串号）
+//   - 写入 BindMode=phone 与 BindPhone，Spwd 留空
+//   - 不调用 LoginAndCache（无密码）—— 认证过程建立的会话由
+//     sessionService.CacheLoginSession 缓存（含 TGC，评教需要）
+//
+// ⚠️ 手机号绑定成功后 spwd 为空，会话过期**无法自动重登**。
+// 但用户只需在页面上再点一次「发送验证码」并补上验证码即可恢复，
+// 不必重新走一遍绑定 —— 这正是选择手机号方式的价值（见需求：
+// 「会话到期没关系，让用户直接补充验证码」）。
+func (s *userService) BindJwcByPhone(ctx context.Context, uid int, result *service.PhoneLoginResult, ipAddress, userAgent string) error {
+	if result == nil || result.Sid == "" {
+		return common.NewAppError(common.CodeInvalidParams, "未能从登录结果中获取学号")
+	}
+	sid := result.Sid
+
+	user, err := s.repo.FindByID(ctx, uid)
+	if err != nil {
+		return err
+	}
+
+	// 学号必须一致：本站账号若已绑了别的学号，不允许用手机号登录静默覆盖。
+	if user.Sid != "" && user.Sid != sid {
+		_ = s.logBindAttempt(ctx, uid, user.Sid, sid, BindStatusFailedLimit, "手机号登录学号与已绑学号不一致", ipAddress, userAgent)
+		return common.NewAppError(common.CodeBindLimitExceeded,
+			fmt.Sprintf("该手机号登录得到的是学号 %s，与当前已绑定的 %s 不一致。如需更换学号请使用密码绑定", sid, user.Sid))
+	}
+
+	isSameSid := user.Sid == sid
+
+	tx := s.repo.(*repository).db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	oldSid := user.Sid
+	now := time.Now()
+	updates := map[string]interface{}{
+		"sid":          sid,
+		"spwd":         "",            // 验证码登录拿不到密码，显式清空
+		"bind_mode":    BindModePhone, // 标记为手机号验证码绑定
+		"bind_phone":   result.Phone,  // 记录手机号，供会话过期后一键重发验证码
+		"last_bind_at": now,
+	}
+	if !isSameSid {
+		updates["total_bind_count"] = user.TotalBindCount + 1
+	}
+	if err := tx.WithContext(ctx).Model(&User{}).Where("uid = ?", uid).Updates(updates).Error; err != nil {
+		tx.Rollback()
+		_ = s.logBindAttempt(ctx, uid, oldSid, sid, BindStatusFailedOther, fmt.Sprintf("更新数据库失败: %v", err), ipAddress, userAgent)
+		return common.NewAppError(common.CodeDatabaseError, "绑定失败，请稍后重试")
+	}
+
+	bindLog := &JwcBindLog{
+		Uid:        uid,
+		OldSid:     oldSid,
+		NewSid:     sid,
+		BindStatus: BindStatusSuccess,
+		IpAddress:  ipAddress,
+		UserAgent:  userAgent,
+		CreatedAt:  now,
+	}
+	if err := tx.WithContext(ctx).Create(bindLog).Error; err != nil {
+		tx.Rollback()
+		return common.NewAppError(common.CodeDatabaseError, "记录日志失败")
+	}
+	if err := tx.Commit().Error; err != nil {
+		return common.NewAppError(common.CodeDatabaseError, "提交事务失败")
+	}
+
+	// 缓存认证过程建立的教务会话（含 TGC），让用户绑定/补验证码后能立刻查询。
+	// ⚠️ 这里**不调用 InvalidateSession** —— 刚拿到的会话必须留着。
+	// 失败不影响绑定结果（用户下次查询会重新引导补验证码）。
+	if err := s.sessionService.CacheLoginSession(ctx, uid, result.Client, result.TGC); err != nil {
+		log.Printf("[BindJwcByPhone] 缓存登录会话失败（不影响绑定结果）: uid=%d, err=%v", uid, err)
+	}
+
+	log.Printf("[BindJwcByPhone] 手机号绑定成功: uid=%d sid=%s name=%s phone=%s", uid, sid, result.Name, maskPhoneForLog(result.Phone))
+	return nil
+}
+
+// maskPhoneForLog 日志里只留手机号后四位，避免明文手机号进日志文件
+func maskPhoneForLog(phone string) string {
+	if len(phone) != 11 {
+		return phone
+	}
+	return "****" + phone[7:]
+}
+
 // logBindAttempt 记录绑定尝试日志（辅助方法）
 func (s *userService) logBindAttempt(ctx context.Context, uid int, oldSid, newSid string, status int, errMsg, ipAddress, userAgent string) error {
 	log := &JwcBindLog{
@@ -713,7 +905,7 @@ func (s *userService) GetBindStatus(ctx context.Context, uid int) (*BindStatusRe
 	}
 
 	return &BindStatusResponse{
-		IsBound:        user.Sid != "" && user.Spwd != "",
+		IsBound:        user.IsBound(),
 		CurrentSid:     user.Sid,
 		TotalBindCount: user.TotalBindCount,
 		LastBindAt:     user.LastBindAt,
@@ -728,14 +920,26 @@ func (s *userService) CheckIsBind(ctx context.Context, uid int) (bool, error) {
 		return false, err
 	}
 
-	return user.Sid != "" && user.Spwd != "", nil
+	return user.IsBound(), nil
 }
 
 // verifyJwcBindingOnLogin 登录时实时校验教务系统绑定状态
 // 缓存过期时尝试重新登录，只有真正的密码错误才标记为未绑定
 func (s *userService) verifyJwcBindingOnLogin(ctx context.Context, user *User) *User {
-	if user.Sid == "" || user.Spwd == "" {
-		return user // 未绑定或不完整的绑定，不做校验
+	if !user.IsBound() {
+		return user // 未绑定，不做校验
+	}
+
+	// 无密码绑定方式（扫码 / 手机号验证码）的用户无法用密码重登：只检查缓存是否还在。
+	// 缓存失效是正常的（TGC 会过期），此时保持"已绑定"状态，
+	// 等用户真正去查数据时由 EnsureSessionAlive 判定并引导重新扫码 / 补验证码。
+	// ⚠️ 不要在这里把这类用户标成未绑定 —— 那会让前端误以为绑定丢了。
+	if !user.HasJwcPassword() {
+		return user
+	}
+
+	if user.Spwd == "" {
+		return user // 绑定信息不完整（历史脏数据），不校验
 	}
 
 	// 尝试从缓存获取 cookies
@@ -1080,10 +1284,8 @@ func (s *userService) LoginByMagicLink(ctx context.Context, token string) (strin
 	return tokenStr, user, nil
 }
 
-// unbindCooldown 注销冷却期
-const unbindCooldown = 24 * time.Hour
-
-// UnbindJwc 注销教务系统绑定：清除 sid+spwd+所有同步数据，1天冷却期
+// UnbindJwc 注销教务系统绑定：清除 sid+spwd+所有同步数据。
+// 注：原 24 小时注销冷却期已于 2026-09-21 移除，用户可随时注销并重新绑定。
 func (s *userService) UnbindJwc(ctx context.Context, uid int, ipAddress, userAgent string) error {
 	// 1. 检查用户是否已绑定
 	user, err := s.repo.FindByID(ctx, uid)
@@ -1092,19 +1294,6 @@ func (s *userService) UnbindJwc(ctx context.Context, uid int, ipAddress, userAge
 	}
 	if user.Sid == "" {
 		return common.NewAppError(common.CodeJwcNotBound, "当前未绑定教务系统")
-	}
-
-	// 2. 检查冷却期
-	lastUnbind, err := s.repo.GetLastUnbindTime(ctx, uid)
-	if err != nil {
-		return common.NewAppError(common.CodeInternalError, "查询注销记录失败")
-	}
-	if lastUnbind != nil && time.Since(*lastUnbind) < unbindCooldown {
-		remaining := unbindCooldown - time.Since(*lastUnbind)
-		hours := int(remaining.Hours())
-		minutes := int(remaining.Minutes()) % 60
-		msg := fmt.Sprintf("注销冷却期未到，请 %d小时%d分钟 后再试", hours, minutes)
-		return common.NewAppError(common.CodeUnbindCooldown, msg)
 	}
 
 	// 3. 开启事务：清除绑定信息 + 软删除数据 + 记录日志
@@ -1118,10 +1307,14 @@ func (s *userService) UnbindJwc(ctx context.Context, uid int, ipAddress, userAge
 	oldSid := user.Sid
 	now := time.Now()
 
-	// 3.1 清除 sid + spwd + 绑定计数
+	// 3.1 清除 sid + spwd + 绑定方式 + 手机号 + 绑定计数
+	// ⚠️ bind_mode / bind_phone 必须一并清掉：否则前端会回填上一个学号绑过的手机号，
+	// 重新绑定时也可能带着过期的绑定方式。
 	if err := tx.WithContext(ctx).Model(&User{}).Where("uid = ?", uid).Updates(map[string]interface{}{
 		"sid":                      "",
 		"spwd":                     "",
+		"bind_mode":                "",
+		"bind_phone":               "",
 		"bind_count_current_month": 0,
 		"bind_month":               "",
 		"total_bind_count":         0,

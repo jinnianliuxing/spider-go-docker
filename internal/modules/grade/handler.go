@@ -22,11 +22,11 @@ func NewHandler(service Service) *Handler {
 func (h *Handler) RegisterRoutes(r *gin.RouterGroup) {
 	grades := r.Group("/grades")
 	{
-		grades.GET("", h.GetGrades)                   // 获取成绩（可选term参数）
-		grades.GET("/level", h.GetLevelGrades)        // 获取等级考试成绩
-		grades.GET("/analysis", h.GetGradesAnalysis)  // 获取成绩分析
-		grades.POST("/regular", h.GetRegularScore)    // 获取平时分
-		grades.GET("/student-info", h.GetStudentInfo) // 获取学生信息（年级、学院、专业、班级）
+		grades.GET("", h.GetGrades)                           // 获取成绩（可选term参数）
+		grades.GET("/level", h.GetLevelGrades)                // 获取等级考试成绩
+		grades.GET("/analysis", h.GetGradesAnalysis)          // 获取成绩分析
+		grades.POST("/regular", h.GetRegularScore)            // 获取平时分
+		grades.GET("/student-info", h.GetStudentInfo)         // 获取学生信息（年级、学院、专业、班级）
 		grades.POST("/transcript/export", h.ExportTranscript) // 导出电子成绩单（发送至邮箱）
 	}
 }

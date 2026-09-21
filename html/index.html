@@ -725,6 +725,93 @@
             .layout-cell--bind .form-row { max-width: 640px; }
         }
 
+        /* I-5b 绑定方式切换（密码 / 手机 / 扫码）：三条流程独立，Tab 只切换可见面板 */
+        .bind-tabs {
+            display: inline-flex; gap: 4px; margin-bottom: 16px;
+            padding: 4px; border-radius: 10px;
+            background: var(--tab-bg);
+            flex-wrap: wrap;
+        }
+        .bind-tab {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 16px; border: none; border-radius: 7px;
+            background: transparent; color: var(--text-secondary);
+            font-size: 13px; font-weight: 600; font-family: inherit;
+            cursor: pointer; transition: background .15s, color .15s;
+        }
+        .bind-tab:hover { background: var(--tab-hover); }
+        .bind-tab.active {
+            background: var(--card-bg); color: var(--accent-strong);
+            box-shadow: var(--shadow-sm);
+        }
+        @media (prefers-color-scheme: dark) { .bind-tab.active { color: var(--text); } }
+        html.dark .bind-tab.active { color: var(--text); }
+        /* 窄屏：三个 Tab 等分铺满一行，避免「扫码绑定」被挤到第二行 */
+        @media (max-width: 420px) {
+            .bind-tabs { display: flex; width: 100%; box-sizing: border-box; }
+            .bind-tab {
+                flex: 1 1 0; min-width: 0; justify-content: center;
+                padding: 7px 4px; gap: 5px; white-space: nowrap; font-size: 12.5px;
+            }
+        }
+
+        /* I-5c 扫码面板：左码右说明，窄屏堆叠 */
+        .qr-layout { display: flex; gap: 20px; align-items: flex-start; flex-wrap: wrap; }
+        .qr-frame {
+            position: relative; flex: 0 0 auto;
+            width: 200px; height: 200px; padding: 10px; box-sizing: border-box;
+            border: 1px solid var(--border); border-radius: 12px;
+            background: #FFFFFF;   /* 二维码必须白底，深色模式下也不改 */
+            display: flex; align-items: center; justify-content: center;
+        }
+        .qr-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .qr-placeholder, .qr-expired {
+            position: absolute; inset: 0; border-radius: 12px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; padding: 12px; text-align: center;
+            font-size: 12.5px; line-height: 1.6; color: var(--text-muted);
+            background: var(--stat-bg);
+        }
+        .qr-placeholder .ic { width: 34px; height: 34px; opacity: .5; }
+        .qr-expired { background: var(--seal-soft); color: var(--seal); font-weight: 600; }
+        .qr-side { flex: 1 1 240px; min-width: 200px; }
+        .qr-status {
+            font-size: 13px; font-weight: 600; color: var(--text);
+            padding: 9px 12px; border-radius: 8px;
+            background: var(--stat-bg); border-left: 3px solid var(--accent);
+            margin-bottom: 12px; line-height: 1.5;
+        }
+        .qr-status.ok { border-left-color: var(--leaf); color: var(--leaf); }
+        .qr-status.warn { border-left-color: var(--seal); color: var(--seal); }
+        .qr-steps {
+            margin: 0 0 12px; padding-left: 18px;
+            font-size: 12.5px; line-height: 1.9; color: var(--text-secondary);
+        }
+        .qr-tip {
+            font-size: 12px; line-height: 1.7; color: var(--text-muted);
+            padding: 10px 12px; border-radius: 8px;
+            background: var(--gold-soft); border-left: 3px solid var(--gold);
+        }
+        @media (max-width: 640px) {
+            .qr-layout { flex-direction: column; align-items: center; }
+            .qr-side { flex: 1 1 auto; width: 100%; }
+        }
+
+        /* I-5d 手机号验证码面板：状态条 + 说明块（与扫码面板的语言保持一致） */
+        .phone-status {
+            font-size: 13px; font-weight: 600; color: var(--text);
+            padding: 9px 12px; border-radius: 8px; margin-bottom: 12px;
+            background: var(--stat-bg); border-left: 3px solid var(--accent); line-height: 1.5;
+        }
+        .phone-status.ok { border-left-color: var(--leaf); color: var(--leaf); }
+        .phone-status.warn { border-left-color: var(--seal); color: var(--seal); }
+        .phone-tip {
+            font-size: 12px; line-height: 1.7; color: var(--text-muted);
+            padding: 10px 12px; border-radius: 8px;
+            background: var(--gold-soft); border-left: 3px solid var(--gold);
+            margin-bottom: 14px;
+        }
+
         /* I-6 通知/须知摘要壳：限高滚动 + 底部渐隐 */
         .digest-scroll { max-height: 264px; overflow-y: auto; padding-right: 4px; }
         .digest-scroll::-webkit-scrollbar { width: 4px; }
@@ -860,6 +947,8 @@
         <symbol id="i-trend" viewBox="0 0 24 24" data-page-node-id="5xWT5kNTviQRFb5MCPAg5A"><path d="M22 7l-8.5 8.5-5-5L2 17" data-page-node-id="I4alsPc9RcsozaXRfWLGEG"/><path d="M16 7h6v6" data-page-node-id="9u4yGZSB4AGlvrhyflqhYz"/></symbol>
         <symbol id="i-mappin" viewBox="0 0 24 24" data-page-node-id="uRBFZp0pe1YIztIy2G8ybO"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z" data-page-node-id="pGaWGqLaGdOAO9wNbWgUGx"/><circle cx="12" cy="10" r="3" data-page-node-id="snH5hAu2V9crMhVQ0v7CzL"/></symbol>
         <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z"/></symbol>
+        <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 8V5.5A2.5 2.5 0 015.5 3H8M16 3h2.5A2.5 2.5 0 0121 5.5V8M21 16v2.5a2.5 2.5 0 01-2.5 2.5H16M8 21H5.5A2.5 2.5 0 013 18.5V16"/><path d="M3 12h18"/></symbol>
+        <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18.5h2"/></symbol>
         <symbol id="i-top" viewBox="0 0 24 24" data-page-node-id="RSr9VCnGLtEGE82OErBxcF"><circle cx="12" cy="12" r="9.5" data-page-node-id="r7xAaMoSfVVpjmT67HbjdL"/><path d="M12 16V8M8.5 11.5L12 8l3.5 3.5" data-page-node-id="L70H3ht8bxHV0zD9qGtZyH"/></symbol>
     </svg>
     <div class="header" data-page-node-id="fVGrGbgTrj7w9nX5HVMQ9u">
@@ -1004,6 +1093,17 @@
                 <div class="card layout-cell layout-cell--bind" data-page-node-id="DexsUudrids2Ai0Tj5kBIh">
                     <h2 data-page-node-id="Zx4LSPiekRbeCb5ZspgiLF"><svg class="ic" data-page-node-id="KxYTIrfPTu7GnWpfplNXW1"><use href="#i-link" data-page-node-id="OUdrlf1EvEemsoeiFJVX2U"/></svg>绑定教务系统</h2>
                     <div id="bindMessage" class="message" data-page-node-id="bnaE05Jf19aH0XRdrtvjCm"></div>
+                    <div class="bind-tabs" id="bindTabs" data-page-node-id="bndTabsRow">
+                        <button type="button" class="bind-tab active" id="bindTabPwd" onclick="switchBindMode('pwd')" data-page-node-id="bndTabPwd">
+                            <svg class="ic"><use href="#i-key"/></svg>密码绑定
+                        </button>
+                        <button type="button" class="bind-tab" id="bindTabPhone" onclick="switchBindMode('phone')" data-page-node-id="bndTabPhone">
+                            <svg class="ic"><use href="#i-phone"/></svg>手机绑定
+                        </button>
+                        <button type="button" class="bind-tab" id="bindTabQr" onclick="switchBindMode('qr')" data-page-node-id="bndTabQr">
+                            <svg class="ic"><use href="#i-scan"/></svg>扫码绑定
+                        </button>
+                    </div>
                     <div id="bindFormArea" data-page-node-id="wWHlil8MuBqxOuFsPEy0fy">
                         <div class="form-row" data-page-node-id="6FArU4ywjWwL5myvB0Xmy2">
                             <div class="form-group" data-page-node-id="3gujGLXEg0NQJmkzLCawfg"><label data-page-node-id="u2gDENYGrhIHZNi1RkVn9F">学号</label><input type="text" id="bindSid" placeholder="请输入学号" data-page-node-id="NdpHhICtF8OQDY26IpQS9X"><a href="javascript:void(0)" id="btnSwitchSid" class="sid-switch hidden" onclick="unlockSidEdit()" title="清空并解锁学号输入框，重新绑定另一个学号">换个学号重新绑定</a></div>
@@ -1012,6 +1112,66 @@
                         <div class="bind-actions" style="display:flex;gap:10px;align-items:center;" data-page-node-id="7MUMYAvAgVzDMrZd1LONcZ">
                             <button class="btn btn-primary" onclick="bindJwc()" data-page-node-id="FC5LKRISOgNEz1jGAP9XUb">立即绑定</button>
                             <button class="btn btn-danger btn-sm hidden" id="btnUnbind" onclick="confirmUnbind()" data-page-node-id="kGtUzzUNDP6bIOdOl1ozrF">解绑学号</button>
+                        </div>
+                    </div>
+                    <!-- 手机号验证码绑定面板：与密码/扫码面板互斥显示 -->
+                    <!-- 会话过期后同一面板即"补一次验证码重新登录"：手机号已回填，点发送→填码 即可 -->
+                    <div id="bindPhoneArea" class="hidden" data-page-node-id="bndPhoneArea">
+                        <div class="form-row" data-page-node-id="bndPhoneRow">
+                            <div class="form-group" data-page-node-id="bndPhonePhoneGrp">
+                                <label data-page-node-id="bndPhonePhoneLbl">手机号</label>
+                                <input type="tel" id="bindPhone" placeholder="i中南林 App 绑定的手机号" inputmode="numeric" autocomplete="tel" maxlength="11">
+                            </div>
+                            <div class="form-group" data-page-node-id="bndPhoneCodeGrp">
+                                <label data-page-node-id="bndPhoneCodeLbl">短信验证码</label>
+                                <div style="display:flex;gap:8px;" data-page-node-id="bndPhoneCodeRow">
+                                    <input type="text" id="bindPhoneCode" placeholder="6 位验证码" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="flex:1;letter-spacing:2px;" onkeydown="if(event.key==='Enter')completePhoneBind()">
+                                    <button class="btn btn-sm btn-outline" id="btnPhoneSendCode" onclick="sendPhoneBindCode()" style="white-space:nowrap;">发送验证码</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="phoneBindStatus" class="phone-status hidden"></div>
+                        <div class="phone-tip">
+                            用 <b>i中南林</b> App 绑定的手机号接收短信验证码即可绑定，<b>无需教务密码</b>。<br>
+                            会话过期后不必重新绑定 —— 回本页再补一次验证码就能恢复查询。
+                        </div>
+                        <div class="bind-actions" style="display:flex;gap:10px;align-items:center;" data-page-node-id="bndPhoneActions">
+                            <button class="btn btn-primary" id="btnPhoneSubmit" onclick="completePhoneBind()" data-page-node-id="bndPhoneSubmit">立即绑定</button>
+                            <button class="btn btn-outline btn-sm" onclick="switchBindMode('pwd')">改用密码绑定</button>
+                            <button class="btn btn-danger btn-sm hidden" id="btnPhoneUnbind" onclick="confirmUnbind()">解绑学号</button>
+                        </div>
+                    </div>
+                    <!-- 扫码绑定面板：与密码面板互斥显示，两条流程完全独立 -->
+                    <div id="bindQrArea" class="hidden" data-page-node-id="bndQrArea">
+                        <div class="qr-layout">
+                            <div class="qr-frame" id="qrFrame">
+                                <div class="qr-placeholder" id="qrPlaceholder">
+                                    <svg class="ic"><use href="#i-scan"/></svg>
+                                    <div>点击下方按钮生成二维码</div>
+                                </div>
+                                <img id="qrImage" class="hidden" alt="i中南林扫码登录二维码">
+                                <div class="qr-expired hidden" id="qrExpired">
+                                    <div>二维码已失效</div>
+                                    <button class="btn btn-sm btn-primary" onclick="startQrBind()">重新获取</button>
+                                </div>
+                            </div>
+                            <div class="qr-side">
+                                <div class="qr-status" id="qrStatus">尚未生成二维码</div>
+                                <ol class="qr-steps">
+                                    <li>打开手机上的 <b>i中南林</b> App 并登录</li>
+                                    <li>点击扫一扫，扫描左侧二维码</li>
+                                    <li>在手机上确认登录</li>
+                                </ol>
+                                <div class="qr-tip">
+                                    扫码绑定无需保存教务密码，更安全；但教务会话过期后需重新扫码，
+                                    无法像密码绑定那样自动恢复。
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bind-actions" style="display:flex;gap:10px;align-items:center;">
+                            <button class="btn btn-primary" id="btnQrStart" onclick="startQrBind()">刷新二维码</button>
+                            <button class="btn btn-outline btn-sm" onclick="switchBindMode('pwd')">改用密码绑定</button>
+                            <button class="btn btn-danger btn-sm hidden" id="btnQrUnbind" onclick="confirmUnbind()">解绑学号</button>
                         </div>
                     </div>
                     <div id="unbindCooldownInfo" class="hidden" style="margin-top:12px;font-size:13px;color:var(--text-muted);" data-page-node-id="Ei8MAwC2vgeBCRYRUfAxrk"></div>
@@ -1514,10 +1674,19 @@
         // 绑定失效状态下，用户点「换个学号」后允许手动编辑学号（纯前端，不改服务端绑定）
         let _sidUnlocked = false;
 
+        // 是否为「密码绑定」：只有密码绑定保存了教务密码，会话过期能自动恢复。
+        // 优先用后端返回的 has_password（qr / phone 均为 false），老响应没有该字段时按 bind_mode 推断。
+        function hasPwdBind(u) {
+            if (!u || !u.is_bind) return false;
+            if (typeof u.has_password === 'boolean') return u.has_password;
+            return u.bind_mode !== 'qr' && u.bind_mode !== 'phone';
+        }
+
         // 绑定主按钮文案：状态一「立即绑定」/ 状态二「更新密码」/ 状态三「重新绑定」
+        // 扫码、手机号绑定用户走状态二，但文案是「改为密码绑定」（输入密码即切换绑定方式）
         function bindBtnLabel() {
             if (!currentUser) return '立即绑定';
-            if (currentUser.is_bind) return '更新密码';
+            if (currentUser.is_bind) return hasPwdBind(currentUser) ? '更新密码' : '改为密码绑定';
             if (currentUser.sid && !_sidUnlocked) return '重新绑定';
             return '立即绑定';
         }
@@ -1532,17 +1701,28 @@
 
         function renderUserInfo() {
             if (!currentUser) return;
-            const bs = currentUser.is_bind ? '<span class="badge badge-success">已绑定</span>' : '<span class="badge badge-warning">未绑定</span>';
+            const isBound = !!currentUser.is_bind;
+            const isQrBound = isBound && currentUser.bind_mode === 'qr';
+            const isPhoneBound = isBound && currentUser.bind_mode === 'phone';
+            const isPwdBound = isBound && hasPwdBind(currentUser);
+            const bs = isBound
+                ? '<span class="badge badge-success">已绑定</span>'
+                : '<span class="badge badge-warning">未绑定</span>';
             const uid = escapeHtml('' + (currentUser.uid || ''));
             const name = escapeHtml(currentUser.name || '-');
             const email = escapeHtml(currentUser.email || '-');
             const sid = escapeHtml(currentUser.sid || '-');
+            // 绑定方式标签：三种方式「会话过期后怎么恢复」完全不同，必须一眼看清
+            let bindModeTag = '';
+            if (isQrBound) bindModeTag = '<span class="badge" style="background:var(--info-soft);color:var(--info);margin-left:6px;">扫码</span>';
+            else if (isPhoneBound) bindModeTag = '<span class="badge" style="background:var(--info-soft);color:var(--info);margin-left:6px;">手机号</span>';
+            else if (isPwdBound) bindModeTag = '<span class="badge" style="background:var(--stat-bg);color:var(--text-muted);margin-left:6px;">密码</span>';
             document.getElementById('userInfoContent').innerHTML = `
                 <div class="stats-grid">
                     <div class="stat-item"><div class="stat-value">${uid}</div><div class="stat-label">用户ID</div></div>
                     <div class="stat-item"><div class="stat-value" style="font-size:16px;">${name}</div><div class="stat-label">用户名</div></div>
                     <div class="stat-item"><div class="stat-value" style="font-size:16px;">${email}</div><div class="stat-label">邮箱</div></div>
-                    <div class="stat-item"><div class="stat-value" style="font-size:16px;">${sid}</div><div class="stat-label">学号 ${bs}</div></div>
+                    <div class="stat-item"><div class="stat-value" style="font-size:16px;">${sid} ${bs}${bindModeTag}</div><div class="stat-label">学号</div></div>
                 </div>
                 <div style="font-size:13px;color:var(--text-muted);margin-top:8px;">注册时间: ${currentUser.created_at ? new Date(currentUser.created_at).toLocaleString() : '-'}</div>`;
             updateBindAlert();
@@ -1550,17 +1730,21 @@
             const spwdInput = document.getElementById('bindSpwd');
             const btnBind = document.querySelector('#bindFormArea .btn-primary');
             const btnUnbind = document.getElementById('btnUnbind');
+            const btnQrUnbind = document.getElementById('btnQrUnbind');
+            const btnPhoneUnbind = document.getElementById('btnPhoneUnbind');
             const sidSwitch = document.getElementById('btnSwitchSid');
-            if (currentUser.is_bind) {
+            // 非密码绑定用户（扫码 / 手机号）：密码面板显示「输入密码即视为改用密码绑定」，文案要贴合语义
+            const pwdPlaceholder = (isQrBound || isPhoneBound) ? '输入密码即可改用密码绑定' : '输入新密码以更新教务系统密码';
+            if (isBound) {
                 sidInput.value = currentUser.sid;
                 sidInput.readOnly = true;
                 sidInput.style.background = 'var(--input-bg)';
                 sidInput.style.opacity = '0.6';
                 sidInput.style.cursor = 'not-allowed';
                 sidInput.placeholder = '已绑定学号';
-                spwdInput.placeholder = '输入新密码以更新教务系统密码';
+                spwdInput.placeholder = pwdPlaceholder;
                 spwdInput.value = '';
-                btnBind.textContent = '更新密码';
+                btnBind.textContent = hasPwdBind(currentUser) ? '更新密码' : '改为密码绑定';
                 btnUnbind.classList.remove('hidden');
                 sidSwitch.classList.add('hidden');
             } else if (currentUser && currentUser.sid && !_sidUnlocked) {
@@ -1588,6 +1772,38 @@
                 btnUnbind.classList.add('hidden');
                 sidSwitch.classList.add('hidden');
             }
+            if (btnQrUnbind) btnQrUnbind.classList.toggle('hidden', !isBound);
+            if (btnPhoneUnbind) btnPhoneUnbind.classList.toggle('hidden', !isBound);
+
+            // 手机号面板：回填已绑手机号（仅在用户没自己填过时），主按钮文案随绑定状态变化
+            const phoneInput = document.getElementById('bindPhone');
+            if (phoneInput && !phoneInput.value.trim()) {
+                phoneInput.value = isPhoneBound ? (currentUser.bind_phone || '') : '';
+            }
+            const btnPhoneSubmit = document.getElementById('btnPhoneSubmit');
+            if (btnPhoneSubmit) btnPhoneSubmit.textContent = isPhoneBound ? '补充验证码重新登录' : '立即绑定';
+
+            // 保持绑定方式 Tab 与实际状态一致：手机号绑定 → 停在手机页；扫码绑定 → 停在扫码页
+            // 手机页额外补一条默认状态说明（首次进入未经过 switchBindMode 时状态条会是空的）
+            if (isPhoneBound) { syncBindModeUi('phone'); setPhoneStatusIfEmpty(PHONE_HINT_BOUND); }
+            else if (isQrBound) syncBindModeUi('qr');
+        }
+
+        // 只同步 Tab 与面板显隐，不做副作用清理（供 renderUserInfo 调用，避免打断正在进行的轮询）
+        function syncBindModeUi(mode) {
+            const m = (mode === 'qr' || mode === 'phone') ? mode : 'pwd';
+            const tPwd = document.getElementById('bindTabPwd');
+            const tPhone = document.getElementById('bindTabPhone');
+            const tQr = document.getElementById('bindTabQr');
+            if (tPwd) tPwd.classList.toggle('active', m === 'pwd');
+            if (tPhone) tPhone.classList.toggle('active', m === 'phone');
+            if (tQr) tQr.classList.toggle('active', m === 'qr');
+            const fa = document.getElementById('bindFormArea');
+            const pa = document.getElementById('bindPhoneArea');
+            const qa = document.getElementById('bindQrArea');
+            if (fa) fa.classList.toggle('hidden', m !== 'pwd');
+            if (pa) pa.classList.toggle('hidden', m !== 'phone');
+            if (qa) qa.classList.toggle('hidden', m !== 'qr');
         }
 
         // ===== 绑定教务系统 - 短信验证码二次验证（MFA）=====
@@ -1651,42 +1867,20 @@
         }
 
         // ========== 教务绑定失效：重新输入教务密码弹窗（可关闭） ==========
-        function showRebindOverlay() {
-            if (document.getElementById('rebindOverlay')) return; // 已弹出则不再重复
-            const sid = (currentUser && currentUser.sid) || '';
-            const ov = document.createElement('div');
-            ov.id = 'rebindOverlay';
-            ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,25,0.55);z-index:1250;display:flex;align-items:center;justify-content:center;padding:16px;';
-            ov.innerHTML = `
-                <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.25);width:100%;max-width:380px;padding:22px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                        <div style="font-size:16px;font-weight:700;color:var(--text,#1f2937);">教务绑定已失效</div>
-                        <button onclick="closeRebindOverlay()" style="border:none;background:transparent;font-size:20px;line-height:1;color:var(--text-muted,#6b7280);cursor:pointer;" aria-label="关闭">&times;</button>
-                    </div>
-                    <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:14px;line-height:1.7;">
-                        教务系统的登录状态已过期${sid ? '（或密码已变更）' : ''}，无法获取数据。
-                        ${sid ? '请输入学号 <b>' + escapeHtml(sid) + '</b> 对应的教务系统密码以更新绑定。' : '请输入教务系统密码以更新绑定。'}
-                    </div>
-                    <div class="pwd-wrapper" style="position:relative;">
-                        <input id="rebindPwdInput" type="password" placeholder="请输入教务系统密码" autocomplete="current-password"
-                            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--input-border,#d1d5db);border-radius:8px;font-size:15px;background:var(--input-bg,#fff);color:var(--text,#1f2937);"
-                            onkeydown="if(event.key==='Enter'){event.preventDefault();submitRebind();}">
-                    </div>
-                    <div id="rebindMsg" class="message" style="margin-top:10px;font-size:13px;"></div>
-                    <div style="display:flex;gap:10px;margin-top:6px;">
-                        <button class="btn btn-outline" style="flex:1;" onclick="closeRebindOverlay()">取消</button>
-                        <button class="btn btn-primary" style="flex:1.6;" id="rebindSubmitBtn" onclick="submitRebind()">更新并重试</button>
-                    </div>
-                    <div style="margin-top:12px;font-size:12px;color:var(--text-muted,#6b7280);text-align:center;line-height:1.6;">
-                        使用 i中南林 APP 的账号密码；若提示需要短信验证会自动转入验证码流程
-                    </div>
-                </div>`;
-            document.body.appendChild(ov);
-            const input = document.getElementById('rebindPwdInput');
-            if (input) setTimeout(() => input.focus(), 60);
-        }
+        // 实现见文件后段（需按 bind_mode 区分扫码/密码用户），此处仅保留引用注释。
+
+        // 用户对「绑定已失效」浮层做过选择（去重绑 / 稍后再说）后置 true，
+        // 本次页面会话内不再自动弹出。
+        //
+        // 为什么必须抑制：用户点「去补验证码重新登录」时浮层被关掉，但页面上
+        // 其它并发请求（课表 / 考试 / 成绩分析等）随后同样返回 40013，
+        // apiFetch 会把浮层**重新创建**出来 —— 它是 position:fixed + inset:0 的
+        // 全屏遮罩，会直接盖住手机面板的验证码输入框，用户根本没机会填码。
+        // 刷新页面即重置；用户也随时能从「信息」页手动进对应 Tab 重新绑定。
+        let _rebindOverlayDismissed = false;
 
         function closeRebindOverlay() {
+            _rebindOverlayDismissed = true;
             const ov = document.getElementById('rebindOverlay');
             if (ov) ov.remove();
         }
@@ -2040,6 +2234,7 @@
         async function bindJwc() {
             const sid = document.getElementById('bindSid').value, spwd = document.getElementById('bindSpwd').value;
             const isBound = currentUser && currentUser.is_bind;            // 状态二：已绑定，改密
+            const isQrBound = isBound && currentUser.bind_mode === 'qr';   // 状态二·扫码：转为密码绑定
             const hasHistorySid = currentUser && currentUser.sid;
             const isRebind = !isBound && !!hasHistorySid && !_sidUnlocked;  // 状态三：绑定失效，恢复绑定
             if (!sid || !spwd) {
@@ -2055,10 +2250,12 @@
             btn.textContent = bindBtnLabel();
             if (!data) return;
             if (data.code === 0) {
-                const okMsg = isBound ? '密码更新成功！' : (isRebind ? '绑定已恢复！' : '绑定成功！');
+                const okMsg = isQrBound ? '已改为密码绑定！此后会话过期可自动恢复。'
+                    : (isBound ? '密码更新成功！' : (isRebind ? '绑定已恢复！' : '绑定成功！'));
                 showMsg('bindMessage', okMsg, 'success');
                 _sidUnlocked = false;
                 document.getElementById('bindSpwd').value = '';
+                syncBindModeUi('pwd');
                 await loadApp();
             } else {
                 let msg;
@@ -2078,9 +2275,343 @@
             }
         }
 
+        // ===================================================================
+        // 扫码绑定（i中南林 App）
+        // 流程：POST /user/bind/qr/start 拿二维码 → 每 2s POST /user/bind/qr/poll 轮询状态
+        //       → status=3 时 POST /user/bind/qr/complete 换取教务会话并落库绑定。
+        // 与密码绑定完全独立：本条链路不需要、也不会保存教务密码。
+        // ===================================================================
+        const QR_POLL_INTERVAL = 2000;   // 轮询间隔（ms）
+        const QR_TTL = 300;              // 二维码有效期（秒），与后端 qrSessionTTL 对齐
+        let _qrSessionId = '';
+        let _qrPollTimer = null;
+        let _qrDeadline = 0;
+        let _qrRunning = false;          // 防止 start 重复触发
+
+        // 用户主动切换绑定方式（pwd / phone / qr）。三条流程各自独立，切走时清理自己的轮询。
+        // opts.autoSend：进入手机面板后自动发一次验证码（供「补验证码重新登录」直达，避免多一次点击）
+        function switchBindMode(mode, opts) {
+            const m = (mode === 'qr' || mode === 'phone') ? mode : 'pwd';
+            const autoSend = !!(opts && opts.autoSend);
+            syncBindModeUi(m);
+            if (m === 'qr') {
+                stopPhoneBindCountdown();
+                resetQrPanel();
+                const isQrBound = currentUser && currentUser.is_bind && currentUser.bind_mode === 'qr';
+                setQrStatus(isQrBound
+                    ? '当前已通过扫码绑定；正在为你刷新二维码…'
+                    : (currentUser && currentUser.is_bind
+                        ? '当前已绑定学号；扫码将以新一次教务登录覆盖该绑定。'
+                        : '正在生成二维码，请用手机 i中南林 App 扫码…'));
+                // 切到扫码 Tab 即自动出码，无需用户再点一次「获取二维码」
+                startQrBind();
+            } else if (m === 'phone') {
+                // 切到手机面板时停掉扫码轮询，避免残留请求
+                stopQrPolling();
+                preparePhonePanel(autoSend);
+            } else {
+                stopQrPolling();
+                stopPhoneBindCountdown();
+            }
+            const box = document.getElementById('bindMessage');
+            if (box) { box.className = 'message'; box.textContent = ''; }
+        }
+
+        function setQrStatus(text, kind) {
+            const el = document.getElementById('qrStatus');
+            if (!el) return;
+            el.textContent = text || '';
+            el.className = 'qr-status' + (kind ? ' ' + kind : '');
+        }
+
+        function resetQrPanel() {
+            stopQrPolling();
+            _qrSessionId = '';
+            const img = document.getElementById('qrImage');
+            const ph = document.getElementById('qrPlaceholder');
+            const ex = document.getElementById('qrExpired');
+            if (img) { img.classList.add('hidden'); img.removeAttribute('src'); }
+            if (ph) ph.classList.remove('hidden');
+            if (ex) ex.classList.add('hidden');
+            const btn = document.getElementById('btnQrStart');
+            if (btn) { btn.disabled = false; btn.textContent = '刷新二维码'; }
+        }
+
+        function stopQrPolling() {
+            if (_qrPollTimer) { clearInterval(_qrPollTimer); _qrPollTimer = null; }
+        }
+
+        async function startQrBind() {
+            if (_qrRunning) return;
+            _qrRunning = true;
+            const btn = document.getElementById('btnQrStart');
+            const img = document.getElementById('qrImage');
+            const ph = document.getElementById('qrPlaceholder');
+            const ex = document.getElementById('qrExpired');
+            if (btn) { btn.disabled = true; btn.textContent = '生成中...'; }
+            if (ex) ex.classList.add('hidden');
+            setQrStatus('正在生成二维码…');
+            try {
+                const data = await apiFetch(API_BASE + '/user/bind/qr/start', { method: 'POST' });
+                if (!data || data.code !== 0 || !data.data || !data.data.qr_image) {
+                    setQrStatus((data && data.message) || '二维码获取失败，请稍后重试', 'warn');
+                    if (ph) ph.classList.remove('hidden');
+                    return;
+                }
+                _qrSessionId = data.data.session_id || '';
+                const ttl = data.data.expires_in || QR_TTL;
+                _qrDeadline = Date.now() + ttl * 1000;
+                if (img) { img.src = data.data.qr_image; img.classList.remove('hidden'); }
+                if (ph) ph.classList.add('hidden');
+                setQrStatus('请用 i中南林 App 扫描左侧二维码…');
+                if (btn) btn.textContent = '刷新二维码';
+                // 若请求返回时用户已切到密码 Tab，则不再启动轮询（避免残留定时器）
+                if (!document.getElementById('bindQrArea') ||
+                    document.getElementById('bindQrArea').classList.contains('hidden')) {
+                    return;
+                }
+                stopQrPolling();
+                _qrPollTimer = setInterval(pollQrBind, QR_POLL_INTERVAL);
+            } catch (e) {
+                setQrStatus('请求异常：' + e.message, 'warn');
+            } finally {
+                _qrRunning = false;
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        async function pollQrBind() {
+            if (!_qrSessionId) { stopQrPolling(); return; }
+            if (Date.now() > _qrDeadline) { onQrExpired(); return; }
+            const data = await apiFetch(API_BASE + '/user/bind/qr/poll', {
+                method: 'POST', body: JSON.stringify({ session_id: _qrSessionId })
+            });
+            if (!data) return;
+            if (data.code !== 0) {
+                if (data.code === 40013 || data.code === 40014) { stopQrPolling(); return; }
+                setQrStatus(data.message || '轮询失败', 'warn');
+                return;
+            }
+            const status = data.data ? data.data.status : -1;
+            const left = Math.max(0, Math.ceil((_qrDeadline - Date.now()) / 1000));
+            // status: 1=待扫码 2=已扫待确认 3=已确认 0=会话中断
+            if (status === 3) {
+                stopQrPolling();
+                setQrStatus('已确认，正在完成绑定…', 'ok');
+                await completeQrBind();
+            } else if (status === 2) {
+                setQrStatus('已扫码，请在手机上点击「确认登录」（' + left + 's）');
+            } else if (status === 0) {
+                onQrExpired('二维码已失效，请重新获取');
+            } else {
+                setQrStatus('请用 i中南林 App 扫描左侧二维码…（' + left + 's）');
+            }
+        }
+
+        function onQrExpired(text) {
+            stopQrPolling();
+            _qrSessionId = '';
+            const img = document.getElementById('qrImage');
+            const ex = document.getElementById('qrExpired');
+            if (img) { img.classList.add('hidden'); img.removeAttribute('src'); }
+            if (ex) ex.classList.remove('hidden');
+            setQrStatus(text || '二维码已过期，请点击「重新获取」', 'warn');
+        }
+
+        async function completeQrBind() {
+            const data = await apiFetch(API_BASE + '/user/bind/qr/complete', {
+                method: 'POST', body: JSON.stringify({ session_id: _qrSessionId })
+            });
+            _qrSessionId = '';
+            if (!data) return;
+            if (data.code === 0) {
+                const who = (data.data && data.data.name) ? (data.data.name + '（' + (data.data.sid || '') + '）') : '';
+                setQrStatus('绑定成功' + (who ? '：' + who : ''), 'ok');
+                showMsgHtml('bindMessage', '已通过 i中南林 扫码绑定教务系统。', 'success');
+                resetQrPanel();
+                setQrStatus('绑定成功' + (who ? '：' + who : ''), 'ok');
+                await loadApp();
+                renderUserInfo();
+                return;
+            }
+            // 扫码学号与已绑学号不一致：引导改用密码绑定（学号一旦绑定不可直接更换）
+            // 注：后端此处返回 CodeBindLimitExceeded(40008)，并非 40012（40012 是已移除的注销冷却期）
+            if (data.code === 40008) {
+                showMsgHtml('bindMessage',
+                    escapeHtml(data.message || '') +
+                    '<div style="margin-top:8px;">如需更换学号，请先点击「解绑学号」，或改用密码绑定。</div>',
+                    'error');
+                setQrStatus('扫码帐号与已绑学号不一致', 'warn');
+                return;
+            }
+            if (data.code === 40011) {
+                showMsgHtml('bindMessage', '教务系统要求短信验证，扫码绑定无法自动完成，请改用密码绑定。', 'error');
+                setQrStatus('需要短信验证，请改用密码绑定', 'warn');
+                return;
+            }
+            showMsg('bindMessage', data.message || '扫码绑定失败', 'error');
+            setQrStatus(data.message || '扫码绑定失败', 'warn');
+        }
+
+        // ===================================================================
+        // 手机号验证码绑定（第三种绑定方式）
+        // 流程：POST /user/bind/phone/start 发短信 → POST /user/bind/phone/complete 提交验证码
+        // 同一对接口服务两个场景：
+        //   1) 首次绑定（学号为空 / 与已绑一致）
+        //   2) 会话过期后的「补一次验证码重新登录」—— 手机号已回填，两步即可恢复
+        // 与密码/扫码绑定完全独立：本链路既不保存也不需要教务密码。
+        // ===================================================================
+        const PHONE_RESEND_WAIT = 60;    // 重发倒计时（秒）
+        // 面板状态条的两种默认文案：已绑定（补码即可恢复）/ 未绑定（直接绑定）
+        const PHONE_HINT_BOUND = '当前通过手机号验证码绑定；重新获取验证码即可恢复查询，无需重新绑定。';
+        const PHONE_HINT_NEW = '输入手机号并获取验证码即可完成绑定，无需教务密码。';
+        let _phoneSessionId = '';
+        let _phoneCountdownTimer = null;
+        let _phoneSending = false;
+        let _phoneSubmitting = false;
+
+        function setPhoneStatus(text, kind) {
+            const el = document.getElementById('phoneBindStatus');
+            if (!el) return;
+            if (!text) { el.className = 'phone-status hidden'; el.textContent = ''; return; }
+            el.textContent = text;
+            el.className = 'phone-status' + (kind ? ' ' + kind : '');
+        }
+
+        // 仅在状态条为空时补默认说明 —— 不覆盖「验证码已发送…」等实时提示
+        function setPhoneStatusIfEmpty(text) {
+            const el = document.getElementById('phoneBindStatus');
+            if (el && !el.textContent.trim()) setPhoneStatus(text);
+        }
+
+        function stopPhoneBindCountdown() {
+            if (_phoneCountdownTimer) { clearInterval(_phoneCountdownTimer); _phoneCountdownTimer = null; }
+            const btn = document.getElementById('btnPhoneSendCode');
+            if (btn) { btn.disabled = false; btn.textContent = '发送验证码'; }
+        }
+
+        function startPhoneBindCountdown() {
+            const btn = document.getElementById('btnPhoneSendCode');
+            if (!btn) return;
+            let left = PHONE_RESEND_WAIT;
+            btn.disabled = true;
+            btn.textContent = left + 's 后重发';
+            if (_phoneCountdownTimer) clearInterval(_phoneCountdownTimer);
+            _phoneCountdownTimer = setInterval(() => {
+                left--;
+                if (left <= 0) { stopPhoneBindCountdown(); return; }
+                btn.textContent = left + 's 后重发';
+            }, 1000);
+        }
+
+        function resetPhonePanel() {
+            stopPhoneBindCountdown();
+            _phoneSessionId = '';
+            const code = document.getElementById('bindPhoneCode');
+            if (code) code.value = '';
+            setPhoneStatus('');
+        }
+
+        // 进入手机面板：回填手机号、重置文案；autoSend=true 时直接发码
+        function preparePhonePanel(autoSend) {
+            const phoneInput = document.getElementById('bindPhone');
+            const isPhoneBound = !!(currentUser && currentUser.is_bind && currentUser.bind_mode === 'phone');
+            if (phoneInput && !phoneInput.value.trim() && isPhoneBound && currentUser.bind_phone) {
+                phoneInput.value = currentUser.bind_phone;
+            }
+            const btnSubmit = document.getElementById('btnPhoneSubmit');
+            if (btnSubmit) btnSubmit.textContent = isPhoneBound ? '补充验证码重新登录' : '立即绑定';
+            setPhoneStatus(isPhoneBound ? PHONE_HINT_BOUND : PHONE_HINT_NEW);
+            if (autoSend && !_phoneSessionId && !_phoneSending) sendPhoneBindCode();
+        }
+
+        async function sendPhoneBindCode() {
+            if (_phoneSending) return;
+            const phoneInput = document.getElementById('bindPhone');
+            const phone = (phoneInput ? phoneInput.value : '').trim();
+            if (!/^1[3-9]\d{9}$/.test(phone)) {
+                setPhoneStatus('请输入正确的 11 位手机号', 'warn');
+                if (phoneInput) phoneInput.focus();
+                return;
+            }
+            _phoneSending = true;
+            const btn = document.getElementById('btnPhoneSendCode');
+            if (btn) { btn.disabled = true; btn.textContent = '发送中...'; }
+            setPhoneStatus('正在发送验证码…');
+            try {
+                const data = await apiFetch(API_BASE + '/user/bind/phone/start', {
+                    method: 'POST', body: JSON.stringify({ phone })
+                });
+                if (!data) { setPhoneStatus('发送失败，请稍后重试', 'warn'); return; }
+                if (data.code !== 0 || !data.data || !data.data.session_id) {
+                    setPhoneStatus((data.data && data.data.message) || data.message || '验证码发送失败', 'warn');
+                    return;
+                }
+                _phoneSessionId = data.data.session_id;
+                // 教务端不校验号码是否真的绑定 i中南林，只会回一句「可能有延迟/未绑定」的原话提示。
+                // 这句必须显示出来，否则用户收不到短信时无从判断。
+                const hint = (data.data.hint || '').trim();
+                const base = '验证码已发送至 ' + (data.data.masked_phone || phone);
+                setPhoneStatus(hint
+                    ? base + '。教务提示：' + hint + '；若始终收不到，请改用密码绑定或扫码绑定。'
+                    : base + '，请输入短信中的 6 位验证码', 'ok');
+                const codeInput = document.getElementById('bindPhoneCode');
+                if (codeInput) codeInput.focus();
+                startPhoneBindCountdown();
+            } catch (e) {
+                setPhoneStatus('请求异常：' + e.message, 'warn');
+            } finally {
+                _phoneSending = false;
+                if (btn && !_phoneCountdownTimer) { btn.disabled = false; btn.textContent = '发送验证码'; }
+            }
+        }
+
+        async function completePhoneBind() {
+            if (_phoneSubmitting) return;
+            if (!_phoneSessionId) { setPhoneStatus('请先点击「发送验证码」获取短信验证码', 'warn'); return; }
+            const codeInput = document.getElementById('bindPhoneCode');
+            const code = (codeInput ? codeInput.value : '').trim();
+            if (!code) { setPhoneStatus('请输入短信验证码', 'warn'); if (codeInput) codeInput.focus(); return; }
+            _phoneSubmitting = true;
+            const btn = document.getElementById('btnPhoneSubmit');
+            const label = btn ? btn.textContent : '';
+            if (btn) { btn.disabled = true; btn.textContent = '验证中...'; }
+            setPhoneStatus('正在验证并建立教务会话…');
+            try {
+                const data = await apiFetch(API_BASE + '/user/bind/phone/complete', {
+                    method: 'POST', body: JSON.stringify({ session_id: _phoneSessionId, code })
+                });
+                if (!data) { setPhoneStatus('请求未送达，请稍后重试', 'warn'); return; }
+                if (data.code === 0) {
+                    const who = (data.data && data.data.name) ? (data.data.name + '（' + (data.data.sid || '') + '）') : '';
+                    resetPhonePanel();
+                    setPhoneStatus('绑定成功' + (who ? '：' + who : ''), 'ok');
+                    showMsgHtml('bindMessage', '已通过手机号验证码完成绑定，教务会话已就绪，可直接查询。', 'success');
+                    closeRebindOverlay();
+                    await loadApp();
+                    renderUserInfo();
+                    return;
+                }
+                // 手机号登录得到的学号与已绑学号不一致：学号一旦绑定不可直接更换，引导改用密码绑定
+                if (data.code === 40008) {
+                    setPhoneStatus('该手机号对应的学号与已绑学号不一致', 'warn');
+                    showMsgHtml('bindMessage', escapeHtml(data.message || '') +
+                        '<div style="margin-top:8px;">如需更换学号，请先点击「解绑学号」，或改用密码绑定。</div>', 'error');
+                    return;
+                }
+                // 40004 既可能是验证码错/过期，也可能是发码时手机号未绑定：都提示重发
+                setPhoneStatus((data.message || '验证失败') + '；如重试仍失败，请点「发送验证码」重新获取', 'warn');
+            } catch (e) {
+                setPhoneStatus('请求异常：' + e.message, 'warn');
+            } finally {
+                _phoneSubmitting = false;
+                if (btn) { btn.disabled = false; btn.textContent = label; }
+            }
+        }
+
         function confirmUnbind() {
             if (!currentUser || !currentUser.sid) return;
-            const msg = `确定要解绑学号 ${escapeHtml(currentUser.sid)} 吗？\n\n这将清除该学号下的所有数据（成绩、课表、考试等），且解绑后 24 小时内无法再次操作。\n\n解绑后你可以绑定新的学号。`;
+            const msg = `确定要解绑学号 ${escapeHtml(currentUser.sid)} 吗？\n\n这将清除该学号下的所有数据（成绩、课表、考试等）。\n\n解绑后你可以随时绑定新的学号。`;
             if (confirm(msg)) doUnbind();
         }
 
@@ -2090,11 +2621,12 @@
             if (data.code === 0) {
                 showMsg('bindMessage', '解绑成功！所有统数据已清除，你可以绑定新的学号。', 'success');
                 document.getElementById('unbindCooldownInfo').classList.add('hidden');
+                resetQrPanel();
+                resetPhonePanel();
+                const phoneInput = document.getElementById('bindPhone');
+                if (phoneInput) phoneInput.value = '';
+                syncBindModeUi('pwd');
                 await loadApp();
-            } else if (data.code === 40012) {
-                showMsg('bindMessage', data.message, 'error');
-                document.getElementById('unbindCooldownInfo').textContent = (data.message || '');
-                document.getElementById('unbindCooldownInfo').classList.remove('hidden');
             } else {
                 showMsg('bindMessage', data.message || '解绑失败', 'error');
             }
@@ -2710,10 +3242,27 @@
             const tdata = await apiFetch(API_BASE + '/user/evaluation/tasks');
             if (!tdata || tdata.code !== 0) {
                 content.innerHTML = `<p style="color:var(--text-muted);text-align:center;padding:20px;">${escapeHtml(tdata?.message || '获取评教任务失败')}</p>`;
+                const abE = document.getElementById('btnAutoEval');
+                if (abE) { abE.disabled = true; abE.title = '评教会话不可用，请先恢复绑定'; }
+                const selE = document.getElementById('evalTask');
+                if (selE) selE.innerHTML = '<option value="">暂无任务</option>';
                 return;
             }
             const tasks = tdata.data || [];
-            if (!tasks.length) { content.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">当前没有可用的评教任务</p>'; return; }
+            if (!tasks.length) {
+                // 上游 getXspjtask 正常返回但任务为空 —— 多为「评教尚未开放」，非故障。
+                content.innerHTML = '<div style="text-align:center;padding:36px 20px;">'
+                    + '<p style="color:var(--text-muted);margin-bottom:8px;">当前没有可用的评教任务</p>'
+                    + '<p style="color:var(--text-muted);font-size:13px;line-height:1.6;">评教通常在每学期末开放，届时点击上方「刷新」即可看到。<br>若学校端已显示任务，请点「刷新」重试。</p>'
+                    + '</div>';
+                const ab0 = document.getElementById('btnAutoEval');
+                if (ab0) { ab0.disabled = true; ab0.title = '当前没有可用的评教任务'; }
+                const sel0 = document.getElementById('evalTask');
+                if (sel0) sel0.innerHTML = '<option value="">暂无任务</option>';
+                return;
+            }
+            const ab1 = document.getElementById('btnAutoEval');
+            if (ab1) { ab1.disabled = false; ab1.title = ''; }
             const sel = document.getElementById('evalTask');
             sel.innerHTML = tasks.map(t => `<option value="${t.taskid}">${escapeHtml(t.taskname || ('任务' + t.taskid))}（${escapeHtml(t.currentStatus || '')}）</option>`).join('');
             const ongoing = tasks.find(t => t.currentStatus === '进行中');
@@ -2810,6 +3359,92 @@
                 : '您还未绑定教务系统，请先绑定学号以使用查询功能。';
             ba.innerHTML = '<svg class="ic"><use href="#i-alert"/></svg>' + text;
             ba.classList.remove('hidden');
+        }
+
+        // 教务会话失效后的分流：
+        //   - 密码绑定 → 输密码即可自愈（原有流程）
+        //   - 扫码绑定 → 没有密码，只能重新扫码
+        //   - 手机号绑定 → 没有密码，但补齐一次短信验证码即可恢复（最轻）
+        function showRebindOverlay() {
+            if (_rebindOverlayDismissed) return; // 用户已对浮层做过选择，本次会话内不再打扰
+            if (document.getElementById('rebindOverlay')) return; // 已弹出则不再重复
+            const sid = (currentUser && currentUser.sid) || '';
+            const isQrBound = !!(currentUser && currentUser.is_bind && currentUser.bind_mode === 'qr');
+            const isPhoneBound = !!(currentUser && currentUser.is_bind && currentUser.bind_mode === 'phone');
+            const ov = document.createElement('div');
+            ov.id = 'rebindOverlay';
+            ov.style.cssText = 'position:fixed;inset:0;background:rgba(10,15,25,0.55);z-index:1250;display:flex;align-items:center;justify-content:center;padding:16px;';
+            const qrBody = `
+                    <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:14px;line-height:1.7;">
+                        该账号通过 <b>i中南林 App 扫码</b> 绑定，本地未保存教务密码，无法自动恢复登录状态。
+                        请用手机重新扫码${sid ? '（学号 <b>' + escapeHtml(sid) + '</b>）' : ''}；也可改用密码绑定，之后即可自动恢复。
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <button class="btn btn-primary" id="rebindGoQrBtn" onclick="goQrRebind()">去扫码重新登录</button>
+                        <button class="btn btn-outline" onclick="closeRebindOverlay()">稍后再说</button>
+                    </div>`;
+            const phoneBody = `
+                    <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:14px;line-height:1.7;">
+                        该账号通过 <b>手机号验证码</b> 绑定，本地未保存教务密码，无法自动恢复登录状态。
+                        只需<b>补一次短信验证码</b>即可恢复查询${sid ? '（学号 <b>' + escapeHtml(sid) + '</b>）' : ''}，不必重新绑定。
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <button class="btn btn-primary" id="rebindGoPhoneBtn" onclick="goPhoneRebind()">去补验证码重新登录</button>
+                        <button class="btn btn-outline" onclick="closeRebindOverlay()">稍后再说</button>
+                    </div>`;
+            const pwdBody = `
+                    <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:14px;line-height:1.7;">
+                        教务系统的登录状态已过期${sid ? '（或密码已变更）' : ''}，无法获取数据。
+                        ${sid ? '请输入学号 <b>' + escapeHtml(sid) + '</b> 对应的教务系统密码以更新绑定。' : '请输入教务系统密码以更新绑定。'}
+                    </div>
+                    <div class="pwd-wrapper" style="position:relative;">
+                        <input id="rebindPwdInput" type="password" placeholder="请输入教务系统密码" autocomplete="current-password"
+                            style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--input-border,#d1d5db);border-radius:8px;font-size:15px;background:var(--input-bg,#fff);color:var(--text,#1f2937);"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault();submitRebind();}">
+                    </div>
+                    <div id="rebindMsg" class="message" style="margin-top:10px;font-size:13px;"></div>
+                    <div style="display:flex;gap:10px;margin-top:6px;">
+                        <button class="btn btn-outline" style="flex:1;" onclick="closeRebindOverlay()">取消</button>
+                        <button class="btn btn-primary" style="flex:1.6;" id="rebindSubmitBtn" onclick="submitRebind()">更新并重试</button>
+                    </div>
+                    <div style="margin-top:12px;font-size:12px;color:var(--text-muted,#6b7280);text-align:center;line-height:1.6;">
+                        使用 i中南林 APP 的账号密码；若提示需要短信验证会自动转入验证码流程
+                    </div>`;
+            ov.innerHTML = `
+                <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.25);width:100%;max-width:380px;padding:22px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <div style="font-size:16px;font-weight:700;color:var(--text,#1f2937);">教务绑定已失效</div>
+                        <button onclick="closeRebindOverlay()" style="border:none;background:transparent;font-size:20px;line-height:1;color:var(--text-muted,#6b7280);cursor:pointer;" aria-label="关闭">&times;</button>
+                    </div>
+                    ${isPhoneBound ? phoneBody : (isQrBound ? qrBody : pwdBody)}
+                </div>`;
+            document.body.appendChild(ov);
+            const input = document.getElementById('rebindPwdInput');
+            if (input) setTimeout(() => input.focus(), 60);
+        }
+
+        // 扫码绑定用户：关掉浮层 → 切到信息页的「扫码绑定」Tab
+        function goQrRebind() {
+            closeRebindOverlay();
+            if (typeof switchTab === 'function') switchTab('info');
+            setTimeout(() => {
+                // switchBindMode('qr') 内部已自动调用 startQrBind()，此处不再重复调用
+                switchBindMode('qr');
+                const card = document.getElementById('bindQrArea');
+                if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 260);
+        }
+
+        // 手机号绑定用户：关掉浮层 → 切到「手机绑定」Tab（手机号已回填并自动发码）
+        function goPhoneRebind() {
+            closeRebindOverlay();
+            if (typeof switchTab === 'function') switchTab('info');
+            setTimeout(() => {
+                // autoSend：用户点的就是「去补验证码」，直接发码，省掉一次点击
+                switchBindMode('phone', { autoSend: true });
+                const card = document.getElementById('bindPhoneArea');
+                if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 260);
         }
 
         async function switchTab(tab) {

@@ -62,6 +62,11 @@ func (f *fakeSession) CompletePhoneMFALogin(ctx context.Context, challengeID str
 	return nil
 }
 
+// CacheLoginSession 外部登录会话缓存（测试用空实现；扫码/手机号链路不参与会话保活测试）
+func (f *fakeSession) CacheLoginSession(ctx context.Context, uid int, client *http.Client, tgc *http.Cookie) error {
+	return nil
+}
+
 // fakeCrawler 实现 CrawlerService，按预设正文作答。
 type fakeCrawler struct {
 	body  string

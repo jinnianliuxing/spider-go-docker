@@ -46,6 +46,16 @@ type SessionService interface {
 	LoginCheck(ctx context.Context, username, password string) error
 	StartPhoneMFALogin(ctx context.Context, uid int, username, password string) (challengeID string, maskedPhone string, err error)
 	CompletePhoneMFALogin(ctx context.Context, challengeID string, code string) error
+	// CacheLoginSession 把「外部登录流程」（扫码 / 手机号验证码）建立的教务会话写入缓存。
+	//
+	// 这两条路径都没有密码，不能走 LoginAndCache；登录态是在认证过程中
+	// 通过 CAS → webvpn-token 建立的，全部存活在传入的 client 的 cookie jar 里，
+	// 这里只负责把教务相关的 cookie 取出来落库。
+	//
+	// tgc 为登录时拿到的 CAS 全局票据（可能为 nil），一并写入 session:tgc:<uid>：
+	// 评教子系统不认教务 cookie，它需要拿 TGC 去 CAS 换 ticket，
+	// 缺了这一步「无密码」用户会被判成「绑定已失效」。
+	CacheLoginSession(ctx context.Context, uid int, client *http.Client, tgc *http.Cookie) error
 }
 
 type jwcSessionService struct {
@@ -231,6 +241,93 @@ func (s *jwcSessionService) GetCachedCookies(ctx context.Context, uid int) ([]*h
 
 func (s *jwcSessionService) InvalidateSession(ctx context.Context, uid int) error {
 	return s.sessionCache.DeleteCookies(ctx, uid)
+}
+
+// CacheLoginSession 把外部登录流程（扫码 / 手机号验证码）建立的会话写入缓存。
+//
+// 与密码登录不同：这两条路径是在 webvpn 域上建立的登录态（webvpn-token + 会话 cookie），
+// 之后访问教务业务接口时依赖这个 jar。因此这里直接用 client 自身再走一次
+// followGET(redirectURL) 把教务域（http-jwxt-...webvpn.csuft.edu.cn）的
+// bzb_jsxsd 等 cookie 建立起来，再统一收集缓存。
+//
+// 这样无密码绑定的用户和密码绑定的用户，后续查询走的是同一条缓存链路
+// （GetCachedCookies → EnsureSessionAlive → 业务接口），无需为它们单开一条。
+func (s *jwcSessionService) CacheLoginSession(ctx context.Context, uid int, client *http.Client, tgc *http.Cookie) error {
+	if client == nil {
+		return common.NewAppError(common.CodeInternalError, "扫码会话客户端为空")
+	}
+
+	// 先把扫码拿到的 TGC 落库（评教模块靠它换 ticket）。
+	// 失败不影响教务会话缓存 —— 教务侧不用 TGC，没有它顶多是评教不可用。
+	if tgc != nil && tgc.Value != "" {
+		if err := s.sessionCache.SetTGC(ctx, uid, tgc, s.cacheExpire); err != nil {
+			log.Printf("[QrLogin] 缓存 TGC 失败(不影响教务会话): uid=%d, err=%v", uid, err)
+		} else {
+			log.Printf("[QrLogin] TGC 已缓存: uid=%d", uid)
+		}
+	} else {
+		log.Printf("[QrLogin] 本次扫码未拿到 TGC，评教功能将不可用: uid=%d", uid)
+	}
+
+	// 访问教务首页，让服务端在 jar 里种下 bzb_jsxsd / SERVERID_jsxsd 等 cookie。
+	// 失败不算致命：用户下次查询时 EnsureSessionAlive 会重新走一遍。
+	finalResp, finalURL, err := s.followGET(client, s.redirectURL, 8)
+	if err != nil {
+		log.Printf("[QrLogin] 缓存扫码会话失败(访问教务失败): uid=%d, err=%v", uid, err)
+		return common.NewAppError(common.CodeJwcRequestFailed, "建立教务会话失败")
+	}
+	bodyBytes, _ := io.ReadAll(io.LimitReader(finalResp.Body, 1<<20))
+	finalResp.Body.Close()
+
+	// 与密码登录同样的守卫：最终页若仍是登录页，说明会话没建立成功
+	if strings.Contains(string(bodyBytes), "LoginToXk") || strings.Contains(string(bodyBytes), "userPassword") || extractTitle(bodyBytes) == "登录" {
+		log.Printf("[QrLogin] 缓存扫码会话失败(最终页疑似登录页): uid=%d, url=%s", uid, finalURL)
+		return common.NewAppError(common.CodeJwcLoginFailed, "教务会话未建立成功")
+	}
+
+	uFinal, _ := url.Parse(finalURL)
+	cookies := s.collectJwxtCookies(client.Jar, uFinal.Host)
+
+	// 扫码场景下，浏览器是直接通过 webvpn 网关访问的，教务域 cookie 可能挂在
+	// webvpn 主机上而不是 jwxt 主机上。这里做一次兜底：把 jar 里所有 cookie
+	// 里名字像教务会话的也一并带上（按名去重）。
+	cookies = s.mergeVpnCookies(client, cookies)
+
+	names := make([]string, 0, len(cookies))
+	for _, c := range cookies {
+		names = append(names, c.Name+"(path="+c.Path+")")
+	}
+	log.Printf("[QrLogin] 扫码会话 Cookie 列表: %v", names)
+	if len(cookies) == 0 {
+		return common.NewAppError(common.CodeJwcRequestFailed, "扫码登录成功但未取得会话Cookie")
+	}
+	return s.sessionCache.SetCookies(ctx, uid, cookies, s.cacheExpire)
+}
+
+// mergeVpnCookies 兜底合并 webvpn 域的 cookie。
+//
+// 扫码路径下登录态可能建立在 webvpn 网关域上（webvpn-token 就在那里），
+// 而教务业务接口经 webvpn 转发时也需要带上它。这里按名去重后合并。
+func (s *jwcSessionService) mergeVpnCookies(client *http.Client, existing []*http.Cookie) []*http.Cookie {
+	if client == nil || client.Jar == nil {
+		return existing
+	}
+	seen := make(map[string]bool, len(existing))
+	for _, c := range existing {
+		seen[c.Name] = true
+	}
+	// webvpn 网关根路径，用来把该域下的 cookie 全捞出来
+	for _, host := range []string{"webvpn.csuft.edu.cn"} {
+		u := &url.URL{Scheme: "https", Host: host, Path: "/"}
+		for _, c := range client.Jar.Cookies(u) {
+			if seen[c.Name] {
+				continue
+			}
+			seen[c.Name] = true
+			existing = append(existing, c)
+		}
+	}
+	return existing
 }
 
 func (s *jwcSessionService) encryptPassword(password string) (string, error) {

@@ -1,25 +1,32 @@
 package user
 
 import (
+	"encoding/base64"
 	"errors"
 	"io"
 	"net/http"
 	"spider-go/internal/common"
+	servicepkg "spider-go/internal/service"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 // Handler 用户HTTP处理器
 type Handler struct {
-	service        Service
-	captchaService CaptchaService
+	service           Service
+	captchaService    CaptchaService
+	qrLoginService    servicepkg.QrLoginService
+	phoneLoginService servicepkg.PhoneLoginService
 }
 
 // NewHandler 创建用户处理器
-func NewHandler(service Service, captchaService CaptchaService) *Handler {
+func NewHandler(service Service, captchaService CaptchaService, qrLoginService servicepkg.QrLoginService, phoneLoginService servicepkg.PhoneLoginService) *Handler {
 	return &Handler{
-		service:        service,
-		captchaService: captchaService,
+		service:           service,
+		captchaService:    captchaService,
+		qrLoginService:    qrLoginService,
+		phoneLoginService: phoneLoginService,
 	}
 }
 
@@ -57,6 +64,18 @@ func (h *Handler) RegisterRoutes(public *gin.RouterGroup, authenticated *gin.Rou
 	authenticated.POST("/wechat/bind", h.WeChatBind)           // 老用户绑定微信
 	authenticated.POST("/update-name", h.UpdateName)           // 更新用户名
 	authenticated.POST("/update-email", h.UpdateEmail)         // 更新邮箱
+
+	// ===== 扫码绑定（i中南林 App）=====
+	// 与密码绑定完全独立的两条流程，互不影响。
+	authenticated.POST("/bind/qr/start", h.BindQrStart)       // 出二维码，返回 base64 PNG + session_id
+	authenticated.POST("/bind/qr/poll", h.BindQrPoll)         // 轮询扫码状态（status 1/2/3）
+	authenticated.POST("/bind/qr/complete", h.BindQrComplete) // 手机确认后完成绑定
+
+	// ===== 手机号验证码绑定（i中南林 App 免密短信登录）=====
+	// 两步流程：发码 → 提交验证码。同一个 complete 接口同时服务
+	// 「首次绑定」与「会话过期后补一次验证码」，由后端按学号是否一致决定。
+	authenticated.POST("/bind/phone/start", h.BindPhoneStart)       // 发送短信验证码，返回 session_id + 脱敏手机号
+	authenticated.POST("/bind/phone/complete", h.BindPhoneComplete) // 提交验证码，完成绑定并缓存教务会话
 }
 
 // Register 用户注册
@@ -306,8 +325,250 @@ func (h *Handler) BindJwc(c *gin.Context) {
 	common.Success(c, gin.H{"message": "绑定成功"})
 }
 
+// ============================================================================
+// 扫码绑定（i中南林 App）
+// ============================================================================
+//
+// 三步流程（与密码绑定完全独立）：
+//  1. POST /user/bind/qr/start     → 后端出码，返回 { session_id, qr_image(base64 PNG) }
+//  2. POST /user/bind/qr/poll      → 前端每 1~2 秒轮询，返回 { status, message }
+//                                    status: 1 待扫 / 2 已扫待确认 / 3 已确认
+//  3. POST /user/bind/qr/complete  → status=3 后调用，拿学号姓名并完成绑定
+//
+// ⚠️ stateKey 只保存在服务端 Redis，绝不返回给前端。
+// ⚠️ session_id 与 uid 绑定，防止 A 的码被 B 用（串号）。
+
+// BindQrStart 扫码绑定-生成二维码
+// @Summary 扫码绑定-生成二维码
+// @Tags User
+// @Produce json
+// @Success 200 {object} gin.H
+// @Router /user/bind/qr/start [post]
+func (h *Handler) BindQrStart(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+
+	png, sessionID, err := h.qrLoginService.Start(c.Request.Context(), uid.(int))
+	if err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, "生成二维码失败")
+		}
+		return
+	}
+
+	common.Success(c, gin.H{
+		"session_id": sessionID,
+		"qr_image":   "data:image/png;base64," + base64.StdEncoding.EncodeToString(png),
+		"expires_in": 300, // 秒
+	})
+}
+
+// BindQrPoll 扫码绑定-轮询扫码状态
+// @Summary 扫码绑定-轮询状态
+// @Tags User
+// @Accept json
+// @Produce json
+// @Router /user/bind/qr/poll [post]
+func (h *Handler) BindQrPoll(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+	var req BindQrSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Error(c, common.CodeInvalidParams, err.Error())
+		return
+	}
+
+	status, message, err := h.qrLoginService.Poll(c.Request.Context(), req.SessionID, uid.(int))
+	if err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, "轮询扫码状态失败")
+		}
+		return
+	}
+
+	common.Success(c, gin.H{"status": status, "message": message})
+}
+
+// BindQrComplete 扫码绑定-完成绑定
+// @Summary 扫码绑定-完成绑定
+// @Tags User
+// @Accept json
+// @Produce json
+// @Router /user/bind/qr/complete [post]
+func (h *Handler) BindQrComplete(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+	var req BindQrSessionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Error(c, common.CodeInvalidParams, err.Error())
+		return
+	}
+
+	result, err := h.qrLoginService.Complete(c.Request.Context(), req.SessionID, uid.(int))
+	if err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, "扫码登录失败")
+		}
+		return
+	}
+
+	// 用扫码结果完成绑定，并缓存扫码过程已建立的会话
+	if err := h.service.BindJwcByQR(c.Request.Context(), uid.(int), result,
+		c.ClientIP(), c.Request.UserAgent()); err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, "扫码绑定失败")
+		}
+		return
+	}
+
+	common.Success(c, gin.H{
+		"message": "扫码绑定成功",
+		"sid":     result.Sid,
+		"name":    result.Name,
+	})
+}
+
+// ============================================================================
+// 手机号验证码绑定（i中南林 App 免密短信登录）
+// ============================================================================
+//
+// 两步流程（与密码/扫码绑定并列的第三种方式）：
+//  1. POST /user/bind/phone/start    → 传手机号（可省略，走库里已绑的），后端发短信，
+//     返回 { session_id, masked_phone, expires_in }
+//  2. POST /user/bind/phone/complete → 传 { session_id, code }，换票并完成绑定
+//
+// ⚠️ 与扫码最大的区别：手机号绑定**没有教务密码**，但会话过期后用户只要再补一次
+// 验证码即可恢复，因此「重新登录」和「首次绑定」共用同一对接口：
+//   学号与已绑一致 → 视为补验证码，只刷新会话；不一致 → 拒绝（防串号）。
+// ⚠️ session_id 与 uid 绑定，防止 A 发起的验证码被 B 用。
+
+// BindPhoneStart 手机号绑定-发送短信验证码
+// @Summary 手机号绑定-发送验证码
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param request body BindPhoneStartRequest false "phone 可省略；省略时用库里已保存的绑定手机号"
+// @Success 200 {object} gin.H
+// @Router /user/bind/phone/start [post]
+func (h *Handler) BindPhoneStart(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+
+	var req BindPhoneStartRequest
+	// 请求体允许为空（会话过期后的「一键重发」就不带手机号）
+	if err := c.ShouldBindJSON(&req); err != nil && !errors.Is(err, io.EOF) {
+		common.Error(c, common.CodeInvalidParams, err.Error())
+		return
+	}
+
+	phone := strings.TrimSpace(req.Phone)
+	if phone == "" {
+		// 缺省用库里已绑的手机号：会话过期后用户不必再输一遍号码
+		user, err := h.service.GetUserInfo(c.Request.Context(), uid.(int))
+		if err != nil {
+			common.Error(c, common.CodeUserNotFound, "获取用户信息失败")
+			return
+		}
+		phone = strings.TrimSpace(user.BindPhone)
+		if phone == "" {
+			common.Error(c, common.CodeInvalidParams, "请填写手机号")
+			return
+		}
+	}
+
+	send, err := h.phoneLoginService.Start(c.Request.Context(), uid.(int), phone)
+	if err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, "发送验证码失败")
+		}
+		return
+	}
+
+	common.Success(c, gin.H{
+		"session_id":   send.SessionID,
+		"masked_phone": send.MaskedPhone,
+		"expires_in":   300, // 秒，与后端 phoneSessionTTL 对齐
+		"message":      "验证码已发送",
+		// hint 是教务端原话（如「短信可能会存在延迟或手机未绑定用户」）——
+		// 教务端不校验号码是否真的绑定，这句必须透给前端当预警，否则用户会干等短信
+		"hint": send.Hint,
+	})
+}
+
+// BindPhoneComplete 手机号绑定-提交验证码
+// @Summary 手机号绑定-提交验证码
+// @Tags User
+// @Accept json
+// @Produce json
+// @Param request body BindPhoneCompleteRequest true "提交验证码请求"
+// @Success 200 {object} gin.H
+// @Router /user/bind/phone/complete [post]
+func (h *Handler) BindPhoneComplete(c *gin.Context) {
+	uid, exists := c.Get("uid")
+	if !exists {
+		common.Error(c, common.CodeUnauthorized, "未授权")
+		return
+	}
+
+	var req BindPhoneCompleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.Error(c, common.CodeInvalidParams, err.Error())
+		return
+	}
+
+	result, err := h.phoneLoginService.Complete(c.Request.Context(), req.SessionID, uid.(int), req.Code)
+	if err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, "手机号登录失败")
+		}
+		return
+	}
+
+	// 用登录结果完成绑定（学号一致时等同"只刷新会话"，见 BindJwcByPhone 注释）
+	if err := h.service.BindJwcByPhone(c.Request.Context(), uid.(int), result,
+		c.ClientIP(), c.Request.UserAgent()); err != nil {
+		if appErr, ok := err.(*common.AppError); ok {
+			common.Error(c, appErr.Code, appErr.Message)
+		} else {
+			common.Error(c, common.CodeInternalError, "手机号绑定失败")
+		}
+		return
+	}
+
+	common.Success(c, gin.H{
+		"message": "手机号绑定成功",
+		"sid":     result.Sid,
+		"name":    result.Name,
+		"phone":   result.Phone,
+	})
+}
+
 // UnbindJwc 注销教务系统绑定
-// @Summary 注销教务系统绑定（清除学号+密码+所有同步数据，1天冷却期）
+// @Summary 注销教务系统绑定（清除学号+密码+所有同步数据）
 // @Tags User
 // @Produce json
 // @Success 200 {object} gin.H

@@ -29,11 +29,13 @@ func NewModule(
 	wxAppID string,
 	wxAppSecret string,
 	frontendBaseURL string,
+	qrLoginService service.QrLoginService,
+	phoneLoginService service.PhoneLoginService,
 ) *Module {
 	repo := NewRepository(db)
 	captchaService := NewCaptchaService(captchaCache, emailService)
 	svc := NewService(repo, sessionService, captchaService, dauService, emailService, magicLinkCache, jwtSecret, jwtIssuer, wxAppID, wxAppSecret, frontendBaseURL)
-	handler := NewHandler(svc, captchaService)
+	handler := NewHandler(svc, captchaService, qrLoginService, phoneLoginService)
 
 	return &Module{
 		handler:        handler,

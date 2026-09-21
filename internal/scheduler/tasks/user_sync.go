@@ -59,6 +59,14 @@ func (t *UserSyncTask) Run(ctx context.Context) error {
 	for _, u := range users {
 		// 检查用户是否已绑定
 		if u.Sid == "" || u.Spwd == "" {
+			// ⚠️ 无密码绑定方式（扫码 bind_mode=qr / 手机号 bind_mode=phone）必须跳过，不能往下走。
+			// 原因：下面的 LoginCheck 需要密码，这类用户没密码必然"登录失败"，
+			// 会被误判成密码错误而 ClearJwcBinding —— 那会把用户的绑定清掉。
+			// 他们本就无法参与自动同步（重登需要密码），会话失效时由
+			// 前端引导用户重新扫码 / 补一次短信验证码，属于设计预期。
+			if u.IsNoPasswordUser() {
+				log.Printf("[UserSyncTask] 跳过无密码绑定用户 %d（bind_mode=%s，不参与自动同步）", u.Uid, u.BindMode)
+			}
 			continue
 		}
 

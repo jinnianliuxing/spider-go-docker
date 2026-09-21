@@ -293,15 +293,15 @@ REDIS_PASSWORD=redis123
 |--------|--------|------|
 | `app.port` | `8080` | Go 服务监听端口 |
 | `database.user` | `root` | MySQL 用户名 |
-| `database.pass` | 环境变量 `MYSQL_PASSWORD` | MySQL 密码 |
+| `database.pass` | `root123` | MySQL 密码 |
 | `database.name` | `spider_go` | 数据库名 |
 | `redis.session.host` | `redis:6379` | Redis 容器内地址 |
-| `redis.session.pass` | 环境变量 `REDIS_PASSWORD` | Redis 密码 |
-| `jwt.secret` | 环境变量 `JWT_SECRET` | JWT 签名密钥（**生产环境必改**） |
+| `redis.session.pass` | `redis123` | Redis 密码 |
+| `jwt.secret` | `dev_secret_key...` | JWT 签名密钥（**生产环境必改**） |
 | `jwc.mode` | `webvpn` | 教务访问模式：`campus`（校内）/ `webvpn`（校外） |
 | `email.smtp_host` | `smtp.qq.com` | SMTP 服务器 |
-| `email.username` | 环境变量 `SMTP_USERNAME` | 发件人邮箱 |
-| `email.password` | 环境变量 `SMTP_PASSWORD` | SMTP 授权码（非 QQ 密码） |
+| `email.username` | `3374793735@qq.com` | 发件人邮箱 |
+| `email.password` | `ibmuhcxhuuhadaec` | SMTP 授权码（非 QQ 密码） |
 | `wx.app_id` / `wx.app_secret` | 空 | 微信小程序配置，留空则禁用微信登录 |
 | `oss.provider` | `tencent` | 对象存储提供商：`aliyun` / `tencent` |
 
