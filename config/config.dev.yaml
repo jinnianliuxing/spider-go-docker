@@ -32,7 +32,7 @@ database:
   source: 127.0.0.1
   port: 3306
   user: spider-dev
-  pass: REDACTED_DEV_DATABASE_PASSWORD
+  pass: ""
   name: spider-dev
 
 # 开发 Redis 配置（统一使用同一个 Redis 实例）
@@ -40,12 +40,12 @@ redis:
   # 会话缓存数据库（DB 0: 会话、DAU、配置、用户数据缓存）
   session:
     host: 118.26.38.103:6379
-    pass: REDACTED_DEV_REDIS_PASSWORD
+    pass: ""
     db: 0
   # 验证码数据库（DB 1: 验证码）
   captcha:
     host: 118.26.38.103:6379
-    pass: REDACTED_DEV_REDIS_PASSWORD
+    pass: ""
     db: 1
 
 jwt:

@@ -42,6 +42,11 @@ services:
       - "8080:8080"
     environment:
       - GO_ENV=production
+      - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
     volumes:
       # 把你改好的 config 目录挂进容器，改配置只需重启容器，不用重新 build 镜像
       - ./config:/app/config

@@ -32,22 +32,22 @@ database:
   source: mysql
   port: 3306
   user: root
-  pass: REDACTED_DATABASE_REDIS_PASSWORD
+  pass: ""
   name: spider_go
 
 # Redis 配置：host 用服务名 "redis"，密码要和 .env 里的 REDIS_PASSWORD 保持一致
 redis:
   session:
     host: redis:6379
-    pass: REDACTED_DATABASE_REDIS_PASSWORD
+    pass: ""
     db: 0
   captcha:
     host: redis:6379
-    pass: REDACTED_DATABASE_REDIS_PASSWORD
+    pass: ""
     db: 1
 
 jwt:
-  secret: "REDACTED_JWT_SECRET"
+  secret: ""
   issuer: "spider-go"
 
 # 教务系统地址：这是学校官方系统，不是别人的私有服务器，一般不用改
@@ -94,8 +94,8 @@ jwc:
 email:
   smtp_host: "smtp.qq.com"
   smtp_port: 465
-  username: "REDACTED_SMTP_USERNAME"
-  password: "REDACTED_SMTP_PASSWORD"
+  username: ""
+  password: ""
   from_name: "Spider-Go 验证码"
 
 # 微信登录：不需要的话留空即可，相关接口会失败但不影响其他功能

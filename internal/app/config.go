@@ -216,7 +216,28 @@ func LoadConfigFromPath(configPath string) (*Config, error) {
 		return nil, fmt.Errorf("Unmarshal config failed: %s", err)
 	}
 
+	applyEnvironmentSecrets(config)
+
 	return config, nil
+}
+
+func applyEnvironmentSecrets(config *Config) {
+	if value := os.Getenv("MYSQL_PASSWORD"); value != "" {
+		config.Database.Pass = value
+	}
+	if value := os.Getenv("REDIS_PASSWORD"); value != "" {
+		config.Redis.Session.Pass = value
+		config.Redis.Captcha.Pass = value
+	}
+	if value := os.Getenv("JWT_SECRET"); value != "" {
+		config.JWT.Secret = value
+	}
+	if value := os.Getenv("SMTP_USERNAME"); value != "" {
+		config.Email.Username = value
+	}
+	if value := os.Getenv("SMTP_PASSWORD"); value != "" {
+		config.Email.Password = value
+	}
 }
 
 // GetEnv 获取当前环境（dev/production）
